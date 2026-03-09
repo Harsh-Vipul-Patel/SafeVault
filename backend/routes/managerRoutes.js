@@ -1,0 +1,735 @@
+const express = require('express');
+const router = express.Router();
+const oracledb = require('oracledb');
+const { verifyToken, requireRole } = require('../middleware/auth');
+const { processPendingNotifications } = require('../lib/dispatchEmail');
+const { mapOracleError } = require('../utils/error_codes');
+
+const MANAGER_ROLES = ['BRANCH_MANAGER', 'SYSTEM_ADMIN'];
+
+// Helper: get manager's branch_id from EMPLOYEES table
+async function getManagerBranchId(connection, userId) {
+    const result = await connection.execute(
+        `SELECT e.branch_id, e.employee_id, e.full_name
+         FROM EMPLOYEES e
+         JOIN USERS u ON e.user_id = u.user_id
+         WHERE RAWTOHEX(u.user_id) = :userId1 OR e.employee_id = :userId2`,
+        { userId1: userId, userId2: userId },
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    return result.rows[0] || null;
+}
+
+// ============================================================
+// GET /api/manager/dashboard
+// Branch Overview Dashboard — real KPIs from Oracle
+// ============================================================
+router.get('/dashboard', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const branchId = managerInfo?.BRANCH_ID;
+
+        let depositsQuery = `SELECT NVL(SUM(amount), 0) AS total FROM TRANSACTIONS 
+                             WHERE TRUNC(transaction_date) = TRUNC(SYSDATE) 
+                             AND transaction_type IN ('CREDIT', 'TRANSFER_CREDIT', 'EXTERNAL_CREDIT', 'INTEREST_CREDIT')`;
+        let wQuery = `SELECT NVL(SUM(amount), 0) AS total FROM TRANSACTIONS 
+                      WHERE TRUNC(transaction_date) = TRUNC(SYSDATE) 
+                      AND transaction_type IN ('DEBIT', 'TRANSFER_DEBIT', 'EXTERNAL_DEBIT', 'FEE_DEBIT')`;
+        let newAccQuery = `SELECT COUNT(*) AS total FROM ACCOUNTS WHERE TRUNC(opened_date) = TRUNC(SYSDATE)`;
+        let recentTxnsQuery = `SELECT t.transaction_id, t.transaction_type, t.amount, t.account_id,
+                                      t.transaction_date, t.description, t.initiated_by
+                               FROM TRANSACTIONS t`;
+
+        const binds = {};
+        if (branchId) {
+            depositsQuery += ` AND branch_id = :bid`;
+            wQuery += ` AND branch_id = :bid`;
+            newAccQuery += ` AND home_branch_id = :bid`;
+            recentTxnsQuery += ` WHERE t.branch_id = :bid`;
+            binds.bid = branchId;
+        }
+        recentTxnsQuery += ` ORDER BY t.transaction_date DESC FETCH FIRST 5 ROWS ONLY`;
+
+        console.log('Running depositsQuery...');
+        // KPI: Total Deposits (today)
+        const deposits = await connection.execute(
+            depositsQuery, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        console.log('Running wQuery...');
+        // KPI: Total Withdrawals (today)
+        const withdrawals = await connection.execute(
+            wQuery, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        console.log('Running pendingApprovals query...');
+        // KPI: Pending Approvals
+        const pendingApprovals = await connection.execute(
+            `SELECT COUNT(*) AS total FROM DUAL_APPROVAL_QUEUE WHERE status = 'PENDING'`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        console.log('Running newAccQuery...');
+        // KPI: New Accounts (today)
+        const newAccounts = await connection.execute(
+            newAccQuery, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        console.log('Running recentTxnsQuery...');
+        // Live Feed: Recent transactions + compliance flags
+        const recentTxns = await connection.execute(
+            recentTxnsQuery, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        const recentFlags = await connection.execute(
+            `SELECT cf.flag_id, cf.flag_type, cf.account_id, cf.flagged_at, cf.threshold_value
+             FROM COMPLIANCE_FLAGS cf
+             ORDER BY cf.flagged_at DESC
+             FETCH FIRST 3 ROWS ONLY`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // Dual Approval Queue preview (top 3)
+        const approvalPreview = await connection.execute(
+            `SELECT q.queue_id, q.operation_type, q.status, q.created_at, q.payload_json,
+                    u.username AS requested_by_name
+             FROM DUAL_APPROVAL_QUEUE q
+             LEFT JOIN USERS u ON q.requested_by = u.user_id
+             WHERE q.status = 'PENDING'
+             ORDER BY q.created_at ASC
+             FETCH FIRST 3 ROWS ONLY`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({
+            kpis: {
+                totalDeposits: deposits.rows[0]?.TOTAL || 0,
+                totalWithdrawals: withdrawals.rows[0]?.TOTAL || 0,
+                pendingApprovals: pendingApprovals.rows[0]?.TOTAL || 0,
+                newAccounts: newAccounts.rows[0]?.TOTAL || 0
+            },
+            approvalPreview: approvalPreview.rows,
+            liveFeed: {
+                transactions: recentTxns.rows,
+                flags: recentFlags.rows
+            },
+            managerInfo: managerInfo ? {
+                name: managerInfo.FULL_NAME,
+                employeeId: managerInfo.EMPLOYEE_ID,
+                branchId: managerInfo.BRANCH_ID
+            } : null
+        });
+    } catch (err) {
+        console.error('Manager Dashboard Error:', err);
+        res.status(500).json({ message: 'Failed to load dashboard: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/approvals
+// Dual Approval Queue — all pending items
+// ============================================================
+router.get('/approvals', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const { status } = req.query;
+        const filterStatus = status || 'PENDING';
+
+        const result = await connection.execute(
+            `SELECT q.queue_id, q.operation_type, q.payload_json, q.status,
+                    q.created_at, q.reviewed_by, q.reviewed_at, q.review_note,
+                    u.username AS requested_by_name
+             FROM DUAL_APPROVAL_QUEUE q
+             LEFT JOIN USERS u ON q.requested_by = u.user_id
+             WHERE q.status = :status
+             ORDER BY q.created_at ASC`,
+            { status: filterStatus },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // Parse payload_json for each row
+        const queue = result.rows.map(row => {
+            let payload = {};
+            try { payload = JSON.parse(row.PAYLOAD_JSON || '{}'); } catch (e) { /* ignore */ }
+            return {
+                queueId: row.QUEUE_ID,
+                operationType: row.OPERATION_TYPE,
+                requestedBy: row.REQUESTED_BY_NAME,
+                status: row.STATUS,
+                createdAt: row.CREATED_AT,
+                reviewedBy: row.REVIEWED_BY,
+                reviewedAt: row.REVIEWED_AT,
+                reviewNote: row.REVIEW_NOTE,
+                payload
+            };
+        });
+
+        res.json({ queue });
+    } catch (err) {
+        console.error('Approvals Fetch Error:', err);
+        res.status(500).json({ message: 'Failed to fetch approvals: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// POST /api/manager/approvals/:id/:action  (APPROVE or REJECT)
+// ============================================================
+router.post('/approvals/:id/:action', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    const { id, action } = req.params;
+    const { note } = req.body;
+    const validActions = ['approve', 'reject'];
+    if (!validActions.includes(action.toLowerCase())) {
+        return res.status(400).json({ message: 'Action must be approve or reject.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const employeeId = managerInfo?.EMPLOYEE_ID || managerId;
+
+        const newStatus = action.toLowerCase() === 'approve' ? 'APPROVED' : 'REJECTED';
+
+        await connection.execute(
+            `UPDATE DUAL_APPROVAL_QUEUE
+             SET status = :newStatus,
+                 reviewed_by = :reviewer,
+                 reviewed_at = SYSTIMESTAMP,
+                 review_note = :note
+             WHERE queue_id = :queueId AND status = 'PENDING'`,
+            {
+                newStatus,
+                reviewer: employeeId,
+                note: note || null,
+                queueId: id
+            },
+            { autoCommit: true }
+        );
+
+        processPendingNotifications(req.user.id, connection).catch(e => console.error(e));
+
+        // Log audit entry
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, new_value_json, change_reason)
+             VALUES ('DUAL_APPROVAL_QUEUE', :recordId, :op, :changedBy, SYSTIMESTAMP, :newVal, :reason)`,
+            {
+                recordId: id,
+                op: 'QUEUE_' + newStatus,
+                changedBy: employeeId,
+                newVal: JSON.stringify({ status: newStatus }),
+                reason: note || ('Queue item ' + action.toLowerCase() + 'd by manager')
+            },
+            { autoCommit: true }
+        );
+
+        res.json({ message: `Request ${newStatus} successfully.`, queueId: id, status: newStatus });
+    } catch (err) {
+        console.error('Approval Action Error:', err);
+        res.status(500).json({ message: 'Action failed: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/accounts
+// Account Management — list accounts for the branch
+// ============================================================
+router.get('/accounts', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const branchId = managerInfo?.BRANCH_ID;
+
+        const result = await connection.execute(
+            `SELECT a.account_id, a.account_number, a.balance, a.status, a.opened_date,
+                    a.minimum_balance, at.type_name,
+                    c.full_name AS customer_name, c.customer_id
+             FROM ACCOUNTS a
+             JOIN ACCOUNT_TYPES at ON a.account_type_id = at.type_id
+             JOIN CUSTOMERS c ON a.customer_id = c.customer_id
+             ${branchId ? 'WHERE a.home_branch_id = :bid' : ''}
+             ORDER BY a.opened_date DESC
+             FETCH FIRST 50 ROWS ONLY`,
+            branchId ? { bid: branchId } : {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({ accounts: result.rows });
+    } catch (err) {
+        console.error('Account List Error:', err);
+        res.status(500).json({ message: 'Failed to fetch accounts: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// POST /api/manager/accounts/:id/status
+// Change account status (ACTIVE, FROZEN, CLOSED)
+// ============================================================
+router.post('/accounts/:id/status', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    const { id } = req.params;
+    const { newStatus, reason } = req.body;
+    const validStatuses = ['ACTIVE', 'FROZEN', 'CLOSED', 'DORMANT'];
+    if (!validStatuses.includes(newStatus)) {
+        return res.status(400).json({ message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const employeeId = managerInfo?.EMPLOYEE_ID || managerId;
+
+        // Get old status for audit
+        const oldResult = await connection.execute(
+            `SELECT status, balance FROM ACCOUNTS WHERE account_id = :aid`,
+            { aid: id },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const oldStatus = oldResult.rows[0]?.STATUS;
+        if (!oldStatus) return res.status(404).json({ message: 'Account not found.' });
+
+        await connection.execute(
+            `UPDATE ACCOUNTS SET status = :newStatus ${newStatus === 'CLOSED' ? ', closed_date = SYSDATE' : ''} WHERE account_id = :aid`,
+            { newStatus, aid: id },
+            { autoCommit: true }
+        );
+
+        // Audit log
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, old_value_json, new_value_json, change_reason)
+             VALUES ('ACCOUNTS', :recordId, 'STATUS_CHANGE', :changedBy, SYSTIMESTAMP, :oldVal, :newVal, :reason)`,
+            {
+                recordId: id,
+                changedBy: employeeId,
+                oldVal: JSON.stringify({ status: oldStatus }),
+                newVal: JSON.stringify({ status: newStatus }),
+                reason: reason || 'Manager status change'
+            },
+            { autoCommit: true }
+        );
+
+        res.json({ message: `Account ${id} status changed to ${newStatus}.`, accountId: id, status: newStatus });
+    } catch (err) {
+        console.error('Account Status Error:', err);
+        res.status(500).json({ message: 'Status change failed: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/settlement
+// Pending External Transfers for settlement
+// ============================================================
+router.get('/settlement', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const { status } = req.query;
+        const filterStatus = status || 'PENDING';
+
+        const result = await connection.execute(
+            `SELECT p.transfer_id, p.source_account_id, p.amount,
+                    p.destination_ifsc, p.destination_account, p.destination_name,
+                    p.purpose, p.status, p.transfer_mode, p.initiated_at,
+                    p.initiated_by, p.settled_at, p.settlement_reference,
+                    p.rejected_at, p.rejection_reason
+             FROM PENDING_EXTERNAL_TRANSFERS p
+             WHERE p.status = :status
+             ORDER BY p.initiated_at ASC`,
+            { status: filterStatus },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({ transfers: result.rows });
+    } catch (err) {
+        console.error('Settlement Fetch Error:', err);
+        res.status(500).json({ message: 'Failed to fetch transfers: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// POST /api/manager/settlement/:id/:action  (settle or reject)
+// ============================================================
+router.post('/settlement/:id/:action', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    const { id, action } = req.params;
+    const { reason } = req.body;
+
+    if (!['settle', 'reject'].includes(action.toLowerCase())) {
+        return res.status(400).json({ message: 'Action must be settle or reject.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const employeeId = managerInfo?.EMPLOYEE_ID || managerId;
+
+        if (action.toLowerCase() === 'settle') {
+            const ref = 'SETT-' + Date.now().toString().slice(-8);
+            await connection.execute(
+                `UPDATE PENDING_EXTERNAL_TRANSFERS
+                 SET status = 'SETTLED', settled_at = SYSTIMESTAMP, settlement_reference = :ref
+                 WHERE transfer_id = :tid AND status = 'PENDING'`,
+                { ref, tid: id },
+                { autoCommit: true }
+            );
+
+            // Audit
+            await connection.execute(
+                `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, new_value_json, change_reason)
+                 VALUES ('PENDING_EXTERNAL_TRANSFERS', :rid, 'SETTLEMENT', :cb, SYSTIMESTAMP, :nv, :reason)`,
+                { rid: id, cb: employeeId, nv: JSON.stringify({ status: 'SETTLED', ref }), reason: reason || 'Settled by manager' },
+                { autoCommit: true }
+            );
+
+            res.json({ message: 'Transfer settled successfully.', transferId: id, reference: ref });
+        } else {
+            await connection.execute(
+                `UPDATE PENDING_EXTERNAL_TRANSFERS
+                 SET status = 'REJECTED', rejected_at = SYSTIMESTAMP, rejection_reason = :reason
+                 WHERE transfer_id = :tid AND status = 'PENDING'`,
+                { reason: reason || 'Rejected by manager', tid: id },
+                { autoCommit: true }
+            );
+
+            res.json({ message: 'Transfer rejected.', transferId: id });
+        }
+    } catch (err) {
+        console.error('Settlement Action Error:', err);
+        res.status(500).json({ message: 'Action failed: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/audit
+// Branch Audit Log
+// ============================================================
+router.get('/audit', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const { date, limit } = req.query;
+        const maxRows = Math.min(parseInt(limit) || 50, 200);
+        let whereClause = '1=1';
+        const binds = {};
+
+        if (date) {
+            whereClause += ` AND TRUNC(a.changed_at) = TO_DATE(:audit_date, 'YYYY-MM-DD')`;
+            binds.audit_date = date;
+        }
+
+        const result = await connection.execute(
+            `SELECT a.audit_id, a.table_name, a.record_id, a.operation,
+                    a.changed_by, a.changed_at, a.old_value_json, a.new_value_json,
+                    a.change_reason, a.violation_flag
+             FROM AUDIT_LOG a
+             WHERE ${whereClause}
+             ORDER BY a.changed_at DESC
+             FETCH FIRST :maxRows ROWS ONLY`,
+            { ...binds, maxRows },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({ auditEntries: result.rows });
+    } catch (err) {
+        console.error('Audit Log Error:', err);
+        res.status(500).json({ message: 'Failed to fetch audit log: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/compliance
+// Compliance Flags
+// ============================================================
+router.get('/compliance', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        const result = await connection.execute(
+            `SELECT cf.flag_id, cf.account_id, cf.transaction_id, cf.flag_type,
+                    cf.threshold_value, cf.flagged_at, cf.reviewed_by,
+                    a.account_number, c.full_name AS customer_name
+             FROM COMPLIANCE_FLAGS cf
+             LEFT JOIN ACCOUNTS a ON cf.account_id = a.account_id
+             LEFT JOIN CUSTOMERS c ON a.customer_id = c.customer_id
+             ORDER BY cf.flagged_at DESC
+             FETCH FIRST 50 ROWS ONLY`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({ flags: result.rows });
+    } catch (err) {
+        console.error('Compliance Flags Error:', err);
+        res.status(500).json({ message: 'Failed to fetch compliance flags: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// POST /api/manager/compliance/:id/review
+// Mark a compliance flag as reviewed
+// ============================================================
+router.post('/compliance/:id/review', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    const { id } = req.params;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const employeeId = managerInfo?.EMPLOYEE_ID || managerId;
+
+        await connection.execute(
+            `UPDATE COMPLIANCE_FLAGS SET reviewed_by = :reviewer WHERE flag_id = :fid`,
+            { reviewer: employeeId, fid: parseInt(id) },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Flag marked as reviewed.', flagId: id });
+    } catch (err) {
+        console.error('Compliance Review Error:', err);
+        res.status(500).json({ message: 'Review failed: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/reports
+// Full Branch Reports — aggregate transaction data
+// ============================================================
+router.get('/reports', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const { fromDate, toDate, type } = req.query;
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const branchId = managerInfo?.BRANCH_ID;
+
+        const from = fromDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const to = toDate || new Date().toISOString().slice(0, 10);
+
+        // Daily Cash Flow Summary
+        const cashFlow = await connection.execute(
+            `SELECT TRUNC(t.transaction_date) AS txn_date,
+                    SUM(CASE WHEN t.transaction_type IN ('CREDIT','TRANSFER_CREDIT','EXTERNAL_CREDIT','INTEREST_CREDIT') THEN t.amount ELSE 0 END) AS total_credits,
+                    SUM(CASE WHEN t.transaction_type IN ('DEBIT','TRANSFER_DEBIT','EXTERNAL_DEBIT','FEE_DEBIT') THEN t.amount ELSE 0 END) AS total_debits,
+                    COUNT(*) AS txn_count
+             FROM TRANSACTIONS t
+             WHERE TRUNC(t.transaction_date) BETWEEN TO_DATE(:fromDate, 'YYYY-MM-DD') AND TO_DATE(:toDate, 'YYYY-MM-DD')
+             ${branchId ? 'AND t.branch_id = :bid' : ''}
+             GROUP BY TRUNC(t.transaction_date)
+             ORDER BY txn_date DESC`,
+            branchId ? { fromDate: from, toDate: to, bid: branchId } : { fromDate: from, toDate: to },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // Account Acquisition
+        const accountAcq = await connection.execute(
+            `SELECT at.type_name, COUNT(*) AS count
+             FROM ACCOUNTS a
+             JOIN ACCOUNT_TYPES at ON a.account_type_id = at.type_id
+             WHERE a.opened_date BETWEEN TO_DATE(:fromDate, 'YYYY-MM-DD') AND TO_DATE(:toDate, 'YYYY-MM-DD')
+             ${branchId ? 'AND a.home_branch_id = :bid' : ''}
+             GROUP BY at.type_name
+             ORDER BY count DESC`,
+            branchId ? { fromDate: from, toDate: to, bid: branchId } : { fromDate: from, toDate: to },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // Teller Performance (transaction counts per teller)
+        const tellerPerf = await connection.execute(
+            `SELECT t.initiated_by, COUNT(*) AS txn_count,
+                    SUM(t.amount) AS total_amount
+             FROM TRANSACTIONS t
+             WHERE TRUNC(t.transaction_date) BETWEEN TO_DATE(:fromDate, 'YYYY-MM-DD') AND TO_DATE(:toDate, 'YYYY-MM-DD')
+             ${branchId ? 'AND t.branch_id = :bid' : ''}
+             GROUP BY t.initiated_by
+             ORDER BY txn_count DESC`,
+            branchId ? { fromDate: from, toDate: to, bid: branchId } : { fromDate: from, toDate: to },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({
+            period: { from, to },
+            cashFlowSummary: cashFlow.rows,
+            accountAcquisition: accountAcq.rows,
+            tellerPerformance: tellerPerf.rows
+        });
+    } catch (err) {
+        console.error('Reports Error:', err);
+        res.status(500).json({ message: 'Failed to generate reports: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/staff
+// Staff Management — employees in the manager's branch
+// ============================================================
+router.get('/staff', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        const branchId = managerInfo?.BRANCH_ID;
+
+        const result = await connection.execute(
+            `SELECT e.employee_id, e.full_name, e.role, e.hire_date, e.is_active,
+                    b.branch_name
+             FROM EMPLOYEES e
+             LEFT JOIN BRANCHES b ON e.branch_id = b.branch_id
+             ${branchId ? 'WHERE e.branch_id = :bid' : ''}
+             ORDER BY e.role, e.full_name`,
+            branchId ? { bid: branchId } : {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({ staff: result.rows });
+    } catch (err) {
+        console.error('Staff Fetch Error:', err);
+        res.status(500).json({ message: 'Failed to fetch staff: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ============================================================
+// GET /api/manager/batch-jobs
+// Batch Job Status — interest accrual batch control
+// ============================================================
+router.get('/batch-jobs', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        const result = await connection.execute(
+            `SELECT bc.run_id, bc.bucket_id, bc.accrual_date, bc.status,
+                    bc.accounts_processed, bc.started_at, bc.completed_at, bc.error_message
+             FROM ACCRUAL_BATCH_CONTROL bc
+             ORDER BY bc.accrual_date DESC, bc.bucket_id ASC
+             FETCH FIRST 50 ROWS ONLY`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // Summary stats
+        const summary = await connection.execute(
+            `SELECT
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS completed,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed,
+                COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) AS in_progress,
+                COUNT(CASE WHEN status = 'PENDING' THEN 1 END) AS pending
+             FROM ACCRUAL_BATCH_CONTROL`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({
+            batchJobs: result.rows,
+            summary: summary.rows[0] || { COMPLETED: 0, FAILED: 0, IN_PROGRESS: 0, PENDING: 0 }
+        });
+    } catch (err) {
+        console.error('Batch Jobs Error:', err);
+        res.status(500).json({ message: 'Failed to fetch batch jobs: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+
+// --- MIS & DASHBOARD EXTENSIONS ---
+// GET /api/manager/mis/summary
+router.get('/mis/summary', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerInfo = await getManagerBranchId(connection, req.user.id);
+        const branchId = managerInfo?.BRANCH_ID;
+
+        const income = await connection.execute(
+            `SELECT SUM(total_interest_income) AS total FROM v_loan_interest_income ${branchId ? 'WHERE branch_id = :bid' : ''}`,
+            branchId ? { bid: branchId } : {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        const expense = await connection.execute(
+            `SELECT SUM(projected_interest_liability) AS total FROM v_fd_interest_expense ${branchId ? 'WHERE branch_id = :bid' : ''}`,
+            branchId ? { bid: branchId } : {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        const liquidity = await connection.execute(
+            `SELECT * FROM v_branch_liquidity ${branchId ? 'WHERE branch_id = :bid' : ''}`,
+            branchId ? { bid: branchId } : {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({
+            interestIncome: income.rows[0]?.TOTAL || 0,
+            projectedInterestExpense: expense.rows[0]?.TOTAL || 0,
+            liquidity: liquidity.rows
+        });
+    } catch (err) {
+        console.error('MIS Fetch Error:', err);
+        res.status(500).json({ message: 'Could not fetch MIS summary.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/manager/deposits/process-maturity
+router.post('/deposits/process-maturity', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
+    const { fdId } = req.body;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const managerInfo = await getManagerBranchId(connection, req.user.id);
+        const employeeId = managerInfo?.EMPLOYEE_ID || req.user.id;
+
+        await connection.execute(
+            `BEGIN sp_process_fd_maturity(:id, :manager); END;`,
+            { id: Number(fdId), manager: employeeId },
+            { autoCommit: true }
+        );
+        res.json({ message: 'FD maturity processed successfully.' });
+    } catch (err) {
+        const error = mapOracleError(err);
+        res.status(error.status).json({ message: error.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+module.exports = router;
