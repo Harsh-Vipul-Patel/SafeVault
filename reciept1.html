@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suraksha Bank — Premium Vault Receipts</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --navy: #0D1B2A;
+            --navy-card: #162032;
+            --gold: #C9962A;
+            --gold2: #E8B84B;
+            --cream: #F5F0E8;
+            --cream2: #EDE7D9;
+            --muted: #6B7E95;
+            --success: #3DD68C;
+            --danger: #FF8080;
+            --r: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--cream);
+            padding: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 30px;
+            background-image: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201, 150, 42, 0.07) 0%, transparent 60%);
+        }
+
+        /* ── VAULT RECEIPT CARD ── */
+        /* .vault-receipt {
+            background: var(--navy-card);
+            border: 1px solid rgba(201, 150, 42, 0.2);
+            border-radius: var(--r);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vault-receipt::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+        } */
+        /* ── VAULT RECEIPT CARD ── */
+        .vault-receipt {
+            background: var(--navy-card);
+            border: 1px solid rgba(201, 150, 42, 0.2);
+            border-radius: var(--r);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            /* Base index for the card */
+        }
+
+        /* ── TOP GOLD BORDER ── */
+        .vault-receipt::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+            z-index: 2;
+        }
+
+        /* ── SAFE VAULT WATERMARK ── */
+        .vault-receipt::after {
+            content: 'SAFE VAULT';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-35deg);
+            font-family: 'Playfair Display', serif;
+            font-size: 68px;
+            font-weight: 900;
+            color: rgba(201, 150, 42, 0.04);
+            /* Very faint gold tint */
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+            pointer-events: none;
+            /* Ensures it doesn't block text selection */
+            z-index: 0;
+            /* Keeps it strictly in the background */
+        }
+
+        /* ── ENSURE CONTENT STAYS ABOVE WATERMARK ── */
+        .vr-header,
+        .vr-amount-section,
+        .vr-data-tables,
+        .vr-footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── HEADER ── */
+        .vr-header {
+            text-align: center;
+            padding: 30px 24px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* ── HEADER ── */
+        /* .vr-header {
+            text-align: center;
+            padding: 30px 24px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        } */
+
+        .vr-bank-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+            color: var(--cream);
+            margin-bottom: 6px;
+        }
+
+        .vr-subtitle {
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--gold2);
+            opacity: 0.9;
+        }
+
+        /* ── AMOUNT & STATUS ── */
+        .vr-amount-section {
+            text-align: center;
+            padding: 24px 24px;
+        }
+
+        .vr-status {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .status-sent {
+            color: var(--cream);
+        }
+
+        .status-received {
+            color: var(--success);
+        }
+
+        .vr-amount {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 700;
+        }
+
+        .amount-debit {
+            color: var(--cream);
+        }
+
+        .amount-credit {
+            color: var(--success);
+        }
+
+        /* ── DATA TABLES ── */
+        .vr-data-tables {
+            padding: 0 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .vr-table {
+            background: rgba(13, 27, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .vr-row {
+            display: flex;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .vr-row:last-child {
+            border-bottom: none;
+        }
+
+        .vr-label {
+            flex: 1;
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .vr-value {
+            flex: 1.5;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            color: var(--cream2);
+            font-weight: 500;
+            text-align: right;
+        }
+
+        .vr-value-highlight {
+            color: var(--gold2);
+            font-weight: 700;
+        }
+
+        /* ── FOOTER ── */
+        .vr-footer {
+            margin-top: auto;
+            background: rgba(13, 27, 42, 0.8);
+            padding: 20px 24px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .vr-footer-cert {
+            font-size: 10px;
+            color: var(--muted);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .vr-footer-thanks {
+            font-family: 'Playfair Display', serif;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gold2);
+            margin-bottom: 6px;
+            font-style: italic;
+        }
+
+        .vr-footer-rights {
+            font-family: 'DM Mono', monospace;
+            font-size: 8px;
+            letter-spacing: 0.2em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">PAYMENT SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 8,500</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">TXN-08212873</span></div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 12:00:12
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Ravi Verma</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Anjali Desai</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">OTP VERIFIED
+                        (Customer Session)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 1,11,01,950</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">PAYMENT RECEIVED</div>
+            <div class="vr-amount amount-credit">+ Rs. 8,500</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">TXN-08212873</span></div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 12:00:12
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Ravi Verma</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Anjali Desai</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">SYSTEM CLEARED
+                        (Auto Credit)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 2,66,840</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">RTGS TRANSFER INITIATED</div>
+            <div class="vr-amount amount-debit">Rs. 15,00,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">UTR Reference</span><span
+                        class="vr-value">SBIN42026030800124</span></div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 10:15:00
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Karan Patel
+                        (MUM-003)</span></div>
+                <div class="vr-row"><span class="vr-label">Beneficiary</span><span class="vr-value">Tata Motors
+                        Ltd</span></div>
+                <div class="vr-row"><span class="vr-label">Dest. Bank/IFSC</span><span
+                        class="vr-value">HDFC0000123</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">MANAGER APPROVED
+                        (Dual)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 42,50,000</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">LOAN EMI DEDUCTED</div>
+            <div class="vr-amount amount-debit">Rs. 42,500</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">EMI-08212899</span></div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 06:00:00
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Debit Account</span><span class="vr-value">Savings
+                        XXXX-0421</span></div>
+                <div class="vr-row"><span class="vr-label">Credit Account</span><span class="vr-value">Home Loan
+                        XXXX-8821</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">AUTO-DEBIT (NACH
+                        Mandate)</span></div>
+                <div class="vr-row"><span class="vr-label">Principal Rem.</span><span
+                        class="vr-value vr-value-highlight">Rs. 32,10,400</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">LOAN DISBURSED</div>
+            <div class="vr-amount amount-credit">+ Rs. 5,00,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">DISB-08212905</span></div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 02:30:00
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Suraksha Bank
+                        (Treasury)</span></div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Meera Sharma
+                        (Personal Loan)</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">MANAGER APPROVED
+                        (Branch)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 5,12,050</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">CHEQUE CLEARED (CREDIT)</div>
+            <div class="vr-amount amount-credit">+ Rs. 24,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Cheque Number</span><span class="vr-value">004829</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 04:00:12
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Drawn On</span><span class="vr-value">ICICI Bank Ltd</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Credited To</span><span class="vr-value">Rahul Exports Pvt
+                        Ltd</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">CTS CLEARING
+                        (NPCI)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 8,45,200</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">ATM WITHDRAWAL SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 10,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">ATM-08212950</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 09:14:22
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">ATM Location</span><span class="vr-value">SBNK ATM - MG
+                        Road</span></div>
+                <div class="vr-row"><span class="vr-label">Debit Card</span><span
+                        class="vr-value">XXXX-XXXX-XXXX-4192</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">ATM PIN
+                        VERIFIED</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 1,01,01,950</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">POS PAYMENT SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 4,250</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">POS-08212988</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 01:45:10
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Merchant</span><span class="vr-value">Reliance Smart
+                        Superstore</span></div>
+                <div class="vr-row"><span class="vr-label">Debit Card</span><span
+                        class="vr-value">XXXX-XXXX-XXXX-4192</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">NFC TAP (NO PIN
+                        REQ)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 1,00,97,700</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">IMPS TRANSFER SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 25,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">IMPS RRN</span><span class="vr-value">606714298101</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 11:20:05
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Ravi Verma</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Beneficiary</span><span class="vr-value">Priya Sharma</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Dest. Bank</span><span class="vr-value">Axis Bank Ltd</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">BIOMETRIC
+                        VERIFIED
+                        (App)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 1,00,72,700</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">CREDIT CARD BILL PAID</div>
+            <div class="vr-amount amount-debit">Rs. 82,400</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">CCPAY-08213012</span></div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 05:00:00
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Debit Account</span><span class="vr-value">Ravi Verma
+                        (Savings)</span></div>
+                <div class="vr-row"><span class="vr-label">Credit Card</span><span class="vr-value">Suraksha Signature
+                        XXXX-1099</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">AUTO-PAY
+                        MANDATE</span></div>
+                <div class="vr-row"><span class="vr-label">Card Outstanding</span><span
+                        class="vr-value vr-value-highlight">Rs. 0.00</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">FOREX REMITTANCE SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 1,67,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">FX-08213045</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 03:10:00
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Beneficiary</span><span class="vr-value">Stanford
+                        University</span></div>
+                <div class="vr-row"><span class="vr-label">Exchange Rate</span><span class="vr-value">1 USD = 83.50
+                        INR</span></div>
+                <div class="vr-row"><span class="vr-label">Remitted Amt</span><span class="vr-value">$2,000.00
+                        USD</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">SWIFT CLEARED
+                        (Branch)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 98,23,300</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">CHEQUE CLEARED (DEBIT)</div>
+            <div class="vr-amount amount-debit">Rs. 45,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Cheque Number</span><span class="vr-value">882910</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 10:30:15
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Amit Singh
+                        (You)</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Priya
+                        Enterprises</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">SIGNATURE
+                        VERIFIED
+                        (CTS)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 5,12,400</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">CHEQUE CLEARED (CREDIT)</div>
+            <div class="vr-amount amount-credit">+ Rs. 45,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Cheque Number</span><span class="vr-value">882910</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 10:30:15
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Amit Singh</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Priya Enterprises
+                        (You)</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">CTS CLEARING
+                        (NPCI)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 12,50,000</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">PAYMENT SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 75,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">NEFT-08213190</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 11:45:00
+                        am</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Vikram Joshi
+                        (You)</span></div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Sneha Rao</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">OTP VERIFIED
+                        (Customer Session)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 2,45,100</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">PAYMENT RECEIVED</div>
+            <div class="vr-amount amount-credit">+ Rs. 75,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">NEFT-08213190</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 12:15:30
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Vikram Joshi</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Sneha Rao
+                        (You)</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">RBI CLEARING
+                        (Auto
+                        Credit)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 1,80,500</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">PAYMENT SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 12,00,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">RTGS-08214005</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 02:10:00
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">TechCorp India
+                        (You)</span></div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Global Suppliers
+                        Ltd</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">MANAGER APPROVED
+                        (Dual)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 45,50,000</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">PAYMENT RECEIVED</div>
+            <div class="vr-amount amount-credit">+ Rs. 12,00,000</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">RTGS-08214005</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 02:12:45
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">TechCorp
+                        India</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Global Suppliers Ltd
+                        (You)</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">SYSTEM CLEARED
+                        (Auto
+                        Credit)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 88,20,000</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-sent">PAYMENT SUCCESSFUL</div>
+            <div class="vr-amount amount-debit">Rs. 15,500</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">IMPS-08215522</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 06:45:10
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Arjun Nair
+                        (You)</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Kavita Nair</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">MPIN VERIFIED
+                        (Mobile
+                        App)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 62,300</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+
+    <div class="vault-receipt">
+        <div class="vr-header">
+            <div class="vr-bank-name">SURAKSHA BANK</div>
+            <div class="vr-subtitle">Premium Secure Vault System Transaction Receipt</div>
+        </div>
+        <div class="vr-amount-section">
+            <div class="vr-status status-received">PAYMENT RECEIVED</div>
+            <div class="vr-amount amount-credit">+ Rs. 15,500</div>
+        </div>
+        <div class="vr-data-tables">
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Transaction Ref</span><span
+                        class="vr-value">IMPS-08215522</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">Date & Time</span><span class="vr-value">8/3/2026, 06:45:12
+                        pm</span></div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">From Account</span><span class="vr-value">Arjun Nair</span>
+                </div>
+                <div class="vr-row"><span class="vr-label">To Account</span><span class="vr-value">Kavita Nair
+                        (You)</span>
+                </div>
+            </div>
+            <div class="vr-table">
+                <div class="vr-row"><span class="vr-label">Authentication</span><span class="vr-value">NPCI CLEARED
+                        (Auto
+                        Credit)</span></div>
+                <div class="vr-row"><span class="vr-label">Updated Balance</span><span
+                        class="vr-value vr-value-highlight">Rs. 34,000</span></div>
+            </div>
+        </div>
+        <div class="vr-footer">
+            <div class="vr-footer-cert">Certified and encrypted by Suraksha Bank Core Security Lab<br>Authorized for
+                digital
+                records only.</div>
+            <div class="vr-footer-thanks">Thank You For Your Loyalty</div>
+            <div class="vr-footer-rights">SURAKSHA BANK | SAFE VAULT | ALL RIGHTS RESERVED</div>
+        </div>
+    </div>
+</body>
+
+</html>

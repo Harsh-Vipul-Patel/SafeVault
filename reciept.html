@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suraksha Bank — Transaction Receipts</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --navy: #0D1B2A;
+            --gold: #C9962A;
+            --gold2: #E8B84B;
+            --cream: #F5F0E8;
+            --cream2: #EDE7D9;
+            --muted: #6B7E95;
+            --r: 12px;
+            --r-sm: 8px;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--cream);
+            padding: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            background-image: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201, 150, 42, 0.07) 0%, transparent 60%);
+        }
+
+        /* ── RECEIPT CARD ── */
+        .receipt-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: var(--r);
+            padding: 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Decorative top border */
+        .receipt-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+        }
+
+        .receipt-header {
+            padding: 24px 24px 16px;
+            text-align: center;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .bank-logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--cream);
+            margin-bottom: 4px;
+        }
+
+        .bank-logo span {
+            color: var(--gold2);
+        }
+
+        .receipt-title {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .receipt-amount-wrapper {
+            text-align: center;
+            padding: 24px 0 16px;
+        }
+
+        .receipt-amount {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .amount-credit {
+            color: #3DD68C;
+        }
+
+        .amount-debit {
+            color: #FF8080;
+        }
+
+        .amount-neutral {
+            color: var(--cream);
+        }
+
+        .receipt-status {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+
+        .status-success {
+            background: rgba(61, 214, 140, 0.12);
+            color: #3DD68C;
+            border: 1px solid rgba(61, 214, 140, 0.25);
+        }
+
+        .status-pending {
+            background: rgba(201, 150, 42, 0.12);
+            color: var(--gold2);
+            border: 1px solid rgba(201, 150, 42, 0.25);
+        }
+
+        .receipt-body {
+            padding: 16px 24px 24px;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .receipt-row:last-child {
+            border-bottom: none;
+        }
+
+        .row-label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .row-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            color: var(--cream2);
+            text-align: right;
+        }
+
+        .receipt-footer {
+            background: rgba(13, 27, 42, 0.6);
+            padding: 16px 24px;
+            text-align: center;
+            font-size: 10px;
+            color: var(--muted);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="receipt-card">
+        <div class="receipt-header">
+            <div class="bank-logo">Suraksha <span>Bank</span></div>
+            <div class="receipt-title">Cash Deposit Receipt</div>
+        </div>
+        <div class="receipt-amount-wrapper">
+            <div class="receipt-amount amount-credit">+₹25,000.00</div>
+            <div class="receipt-status status-success">Completed</div>
+        </div>
+        <div class="receipt-body">
+            <div class="receipt-row">
+                <span class="row-label">Transaction ID</span>
+                <span class="row-value">TXN-D-904281</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Date & Time</span>
+                <span class="row-value">08 Mar 2026, 10:15 AM</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Account No.</span>
+                <span class="row-value">XXXX-XXXX-0421</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Branch</span>
+                <span class="row-value">BRN-MUM-003</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Served By</span>
+                <span class="row-value">Teller Priya (T-042)</span>
+            </div>
+        </div>
+        <div class="receipt-footer">
+            This is a computer-generated receipt.
+        </div>
+    </div>
+
+    <div class="receipt-card">
+        <div class="receipt-header">
+            <div class="bank-logo">Suraksha <span>Bank</span></div>
+            <div class="receipt-title">Cash Withdrawal Receipt</div>
+        </div>
+        <div class="receipt-amount-wrapper">
+            <div class="receipt-amount amount-debit">−₹10,500.00</div>
+            <div class="receipt-status status-success">Completed</div>
+        </div>
+        <div class="receipt-body">
+            <div class="receipt-row">
+                <span class="row-label">Transaction ID</span>
+                <span class="row-value">TXN-W-904282</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Date & Time</span>
+                <span class="row-value">08 Mar 2026, 11:30 AM</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Account No.</span>
+                <span class="row-value">XXXX-XXXX-0421</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Available Bal.</span>
+                <span class="row-value">₹1,14,000.00</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Served By</span>
+                <span class="row-value">Teller Priya (T-042)</span>
+            </div>
+        </div>
+        <div class="receipt-footer">
+            Please count your cash before leaving the counter.
+        </div>
+    </div>
+
+    <div class="receipt-card">
+        <div class="receipt-header">
+            <div class="bank-logo">Suraksha <span>Bank</span></div>
+            <div class="receipt-title">Internal Fund Transfer</div>
+        </div>
+        <div class="receipt-amount-wrapper">
+            <div class="receipt-amount amount-neutral">₹5,000.00</div>
+            <div class="receipt-status status-success">Completed</div>
+        </div>
+        <div class="receipt-body">
+            <div class="receipt-row">
+                <span class="row-label">Transaction ID</span>
+                <span class="row-value">TXN-I-904283</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Date & Time</span>
+                <span class="row-value">08 Mar 2026, 02:45 PM</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">From Account</span>
+                <span class="row-value">XXXX-XXXX-0421</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">To Account</span>
+                <span class="row-value">XXXX-XXXX-8892</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Remarks</span>
+                <span class="row-value">Rent Payment</span>
+            </div>
+        </div>
+        <div class="receipt-footer">
+            Funds transferred successfully within Suraksha Bank.
+        </div>
+    </div>
+
+    <div class="receipt-card">
+        <div class="receipt-header">
+            <div class="bank-logo">Suraksha <span>Bank</span></div>
+            <div class="receipt-title">RTGS Transfer Advice</div>
+        </div>
+        <div class="receipt-amount-wrapper">
+            <div class="receipt-amount amount-neutral">₹8,50,000.00</div>
+            <div class="receipt-status status-pending">Processing</div>
+        </div>
+        <div class="receipt-body">
+            <div class="receipt-row">
+                <span class="row-label">Reference No.</span>
+                <span class="row-value">RTGS-P-904284</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Date & Time</span>
+                <span class="row-value">08 Mar 2026, 04:12 PM</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">From Account</span>
+                <span class="row-value">XXXX-XXXX-0421</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Beneficiary A/C</span>
+                <span class="row-value">39485720194</span>
+            </div>
+            <div class="receipt-row">
+                <span class="row-label">Dest. IFSC</span>
+                <span class="row-value">HDFC0001234</span>
+            </div>
+        </div>
+        <div class="receipt-footer">
+            Subject to clearance by the Branch Manager.
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suraksha Bank — Architecture Diagrams</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0D1B2A; --navy2:#162032; --navy3:#1E2D42; --navy4:#243550;
+  --gold:#C9962A; --gold2:#E8B84B; --gold3:#F5D07A;
+  --cream:#F5F0E8;
+  --steel:#3A4F66; --steel2:#4E6680;
+  --muted:#6B7E95; --muted2:#8A9DB5;
+  --white:#FFFFFF;
+  /* domain colours */
+  --core:   #1A5C8A; --core-l:rgba(26,92,138,0.18);
+  --auth:   #5C1A8A; --auth-l:rgba(92,26,138,0.18);
+  --loan:   #1A7A4A; --loan-l:rgba(26,122,74,0.18);
+  --xfer:   #8A5C1A; --xfer-l:rgba(138,92,26,0.18);
+  --audit:  #6B1A1A; --audit-l:rgba(107,26,26,0.18);
+  --new:    #1A6B6B; --new-l:rgba(26,107,107,0.18);
+  --config: #4A1A7A; --config-l:rgba(74,26,122,0.18);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--cream);overflow:hidden;height:100vh;display:flex;flex-direction:column}
+
+/* ── TOP BAR ── */
+.top-bar{
+  display:flex;align-items:center;gap:0;
+  background:linear-gradient(135deg,#0A1520 0%,#162032 100%);
+  border-bottom:1px solid rgba(201,150,42,0.25);
+  padding:0 24px;height:56px;flex-shrink:0;
+}
+.logo{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold2);letter-spacing:0.04em;margin-right:32px}
+.logo span{color:var(--muted2);font-size:12px;font-family:'DM Mono',monospace;letter-spacing:0.12em;margin-left:8px}
+.tabs{display:flex;gap:2px}
+.tab{
+  font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+  padding:8px 20px;cursor:pointer;border-radius:6px 6px 0 0;
+  color:var(--muted2);border:1px solid transparent;border-bottom:none;
+  transition:all .2s;user-select:none;
+}
+.tab:hover{color:var(--gold2);background:rgba(201,150,42,0.06)}
+.tab.active{color:var(--gold2);background:var(--navy3);border-color:rgba(201,150,42,0.2)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.hint{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em}
+.badge-count{background:rgba(201,150,42,0.15);color:var(--gold2);font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;border:1px solid rgba(201,150,42,0.2)}
+
+/* ── DIAGRAM CONTAINER ── */
+.diagram-wrap{flex:1;overflow:hidden;position:relative}
+.diagram-panel{position:absolute;inset:0;display:none}
+.diagram-panel.active{display:block}
+svg.main-svg{width:100%;height:100%;cursor:grab}
+svg.main-svg:active{cursor:grabbing}
+
+/* ── LEGEND ── */
+.legend{
+  position:absolute;bottom:16px;left:16px;
+  background:rgba(13,27,42,0.92);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.07);border-radius:8px;
+  padding:10px 14px;display:flex;flex-direction:column;gap:6px;
+  z-index:10;
+}
+.legend-title{font-family:'DM Mono',monospace;font-size:9px;color:var(--gold2);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:2px}
+.legend-row{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted2)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* ── ZOOM CONTROLS ── */
+.zoom-ctrl{
+  position:absolute;bottom:16px;right:16px;z-index:10;
+  display:flex;flex-direction:column;gap:4px;
+}
+.zoom-btn{
+  width:32px;height:32px;background:rgba(22,32,50,0.95);border:1px solid rgba(255,255,255,0.1);
+  border-radius:6px;color:var(--cream);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;font-family:'DM Mono',monospace;
+}
+.zoom-btn:hover{background:rgba(201,150,42,0.15);border-color:rgba(201,150,42,0.3)}
+
+/* ── MINIMAP ── */
+.minimap{
+  position:absolute;top:12px;right:12px;z-index:10;
+  width:180px;height:120px;
+  background:rgba(13,27,42,0.88);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;
+}
+.minimap svg{width:100%;height:100%}
+.minimap-viewport{fill:rgba(201,150,42,0.12);stroke:rgba(201,150,42,0.5);stroke-width:1}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">SURAKSHA BANK <span>ARCHITECTURE DIAGRAMS v6.0</span></div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('er')">ER Diagram</div>
+    <div class="tab" onclick="switchTab('class')">Class Diagram</div>
+  </div>
+  <div class="top-right">
+    <span class="badge-count" id="er-badge">32 Tables · 67 Relationships</span>
+    <span class="hint">Scroll to zoom · Drag to pan</span>
+  </div>
+</div>
+
+<div class="diagram-wrap">
+
+  <!-- ══ ER DIAGRAM ══ -->
+  <div class="diagram-panel active" id="panel-er">
+    <svg class="main-svg" id="er-svg" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr-end" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(100,130,170,0.7)"/>
+        </marker>
+        <marker id="arr-fk" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+          <circle cx="4" cy="4" r="2.5" fill="rgba(100,130,170,0.7)"/>
+        </marker>
+        <marker id="arr-gold" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(201,150,42,0.8)"/>
+        </marker>
+        <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.5)"/></filter>
+      </defs>
+      <g id="er-root"><!-- filled by JS --></g>
+    </svg>
+
+    <div class="legend">
+      <div class="legend-title">Domain</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#1A5C8A"></div>Core Banking</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#5C1A8A"></div>Auth / Users</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#1A7A4A"></div>Loan Module</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#8A5C1A"></div>Transfers</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#1A6B6B"></div>New Modules</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#6B1A1A"></div>Audit / Compliance</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#4A1A7A"></div>Config / Scheduler</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);margin:4px 0;padding-top:6px">
+        <div class="legend-row">── FK Relationship</div>
+        <div class="legend-row" style="color:var(--gold2)">── PK (gold header)</div>
+      </div>
+    </div>
+    <div class="zoom-ctrl">
+      <button class="zoom-btn" onclick="zoom('er',1.2)">+</button>
+      <button class="zoom-btn" onclick="zoom('er',1/1.2)">−</button>
+      <button class="zoom-btn" onclick="resetZoom('er')" style="font-size:10px">⌂</button>
+    </div>
+    <div class="minimap" id="er-minimap"><svg id="er-mm-svg"></svg></div>
+  </div>
+
+  <!-- ══ CLASS DIAGRAM ══ -->
+  <div class="diagram-panel" id="panel-class">
+    <svg class="main-svg" id="class-svg" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="carr-end" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <path d="M0,0 L0,7 L10,3.5 z" fill="rgba(100,160,255,0.7)"/>
+        </marker>
+        <marker id="carr-hollow" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto">
+          <path d="M0,0 L0,10 L12,5 z" fill="none" stroke="rgba(100,160,255,0.7)" stroke-width="1.5"/>
+        </marker>
+        <marker id="carr-compose" markerWidth="12" markerHeight="8" refX="1" refY="4" orient="auto">
+          <path d="M0,4 L5,0 L10,4 L5,8 z" fill="rgba(61,184,138,0.8)"/>
+        </marker>
+        <marker id="carr-agg" markerWidth="12" markerHeight="8" refX="1" refY="4" orient="auto">
+          <path d="M0,4 L5,0 L10,4 L5,8 z" fill="none" stroke="rgba(201,150,42,0.8)" stroke-width="1.5"/>
+        </marker>
+      </defs>
+      <g id="class-root"><!-- filled by JS --></g>
+    </svg>
+
+    <div class="legend">
+      <div class="legend-title">UML Notation</div>
+      <div class="legend-row" style="gap:10px">
+        <svg width="30" height="12"><line x1="0" y1="6" x2="24" y2="6" stroke="rgba(100,160,255,0.7)" stroke-width="1.5" marker-end="url(#carr-end)"/></svg>
+        Association / FK
+      </div>
+      <div class="legend-row">
+        <svg width="30" height="12"><line x1="0" y1="6" x2="24" y2="6" stroke="rgba(100,160,255,0.7)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#carr-hollow)"/></svg>
+        Inheritance
+      </div>
+      <div class="legend-row">
+        <svg width="30" height="12"><path d="M0,6 L5,1 L10,6 L5,11 z" fill="rgba(61,184,138,0.8)" transform="translate(0,-2)"/><line x1="10" y1="6" x2="28" y2="6" stroke="rgba(61,184,138,0.6)" stroke-width="1.5"/></svg>
+        Composition
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);margin:4px 0;padding-top:6px">
+        <div class="legend-row"><div class="legend-dot" style="background:#1A5C8A"></div>Entity / Domain</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#5C1A8A"></div>Role / Access Control</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#1A7A4A"></div>Service Layer (SP)</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#8A5C1A"></div>Abstract / Interface</div>
+      </div>
+    </div>
+    <div class="zoom-ctrl">
+      <button class="zoom-btn" onclick="zoom('class',1.2)">+</button>
+      <button class="zoom-btn" onclick="zoom('class',1/1.2)">−</button>
+      <button class="zoom-btn" onclick="resetZoom('class')" style="font-size:10px">⌂</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// DATA DEFINITIONS
+// ════════════════════════════════════════════════════════
+
+const DOMAINS = {
+  core:   {color:'#1A5C8A', light:'rgba(26,92,138,0.18)',  border:'rgba(26,92,138,0.6)'},
+  auth:   {color:'#6B2EA0', light:'rgba(107,46,160,0.18)', border:'rgba(107,46,160,0.6)'},
+  loan:   {color:'#1A7A4A', light:'rgba(26,122,74,0.18)',  border:'rgba(26,122,74,0.6)'},
+  xfer:   {color:'#8A5C1A', light:'rgba(138,92,26,0.18)',  border:'rgba(138,92,26,0.6)'},
+  audit:  {color:'#8A2020', light:'rgba(138,32,32,0.18)',  border:'rgba(138,32,32,0.6)'},
+  newmod: {color:'#1A7070', light:'rgba(26,112,112,0.18)', border:'rgba(26,112,112,0.6)'},
+  config: {color:'#5A2A8A', light:'rgba(90,42,138,0.18)',  border:'rgba(90,42,138,0.6)'},
+};
+
+// ER Diagram: [name, domain, x, y, columns]
+// columns: [name, type, flags]  flags: PK, FK, NN, UQ
+const ER_TABLES = [
+  // ── CORE BANKING ──
+  ['BRANCHES',          'core',   150,  200, [
+    ['branch_id','NUMBER IDENTITY','PK'],
+    ['branch_code','VARCHAR2(10)','UQ NN'],
+    ['branch_name','VARCHAR2(100)','NN'],
+    ['city','VARCHAR2(60)','NN'],
+    ['ifsc_prefix','VARCHAR2(6)','NN'],
+    ['manager_id','NUMBER','FK → EMPLOYEES'],
+  ]],
+  ['CUSTOMERS',         'core',   500,  130, [
+    ['customer_id','NUMBER IDENTITY','PK'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['full_name','VARCHAR2(150)','NN'],
+    ['pan_masked','VARCHAR2(10)',''],
+    ['date_of_birth','DATE','NN'],
+    ['mobile','VARCHAR2(15)','NN'],
+    ['email','VARCHAR2(120)',''],
+    ['created_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['ACCOUNT_TYPES',     'core',   900,  100, [
+    ['type_id','NUMBER IDENTITY','PK'],
+    ['type_code','VARCHAR2(20)','UQ NN'],
+    ['type_name','VARCHAR2(60)','NN'],
+    ['min_balance','NUMBER(15,2)','NN'],
+    ['interest_rate','NUMBER(5,3)',''],
+    ['max_withdrawal_per_day','NUMBER(15,2)',''],
+  ]],
+  ['ACCOUNTS',          'core',   870,  350, [
+    ['account_id','NUMBER IDENTITY','PK'],
+    ['account_number','VARCHAR2(20)','UQ NN'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['type_id','NUMBER','FK → ACCOUNT_TYPES NN'],
+    ['balance','NUMBER(15,2)','NN CHECK≥0'],
+    ['status','VARCHAR2(15)','CHK ACTIVE/FROZEN/...'],
+    ['opened_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['TRANSACTIONS',      'core',  1250,  300, [
+    ['txn_id','NUMBER IDENTITY','PK'],
+    ['account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['txn_type','VARCHAR2(25)','NN'],
+    ['amount','NUMBER(15,2)','NN CHECK>0'],
+    ['balance_after','NUMBER(15,2)','NN'],
+    ['transaction_source','VARCHAR2(15)','CHK TELLER/ATM/...'],
+    ['reference_id','VARCHAR2(40)',''],
+    ['initiated_by','NUMBER','FK → USERS'],
+    ['txn_timestamp','TIMESTAMP TZ','NN'],
+  ]],
+
+  // ── AUTH / USERS ──
+  ['EMPLOYEES',         'auth',   140,  500, [
+    ['employee_id','NUMBER IDENTITY','PK'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['full_name','VARCHAR2(150)','NN'],
+    ['designation','VARCHAR2(60)','NN'],
+    ['is_active','CHAR(1)','NN DEFAULT Y'],
+  ]],
+  ['USERS',             'auth',   500,  490, [
+    ['user_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS'],
+    ['employee_id','NUMBER','FK → EMPLOYEES'],
+    ['username','VARCHAR2(60)','UQ NN'],
+    ['password_hash','VARCHAR2(128)','NN'],
+    ['role','VARCHAR2(20)','CHK roles NN'],
+    ['last_login','TIMESTAMP TZ',''],
+    ['is_locked','CHAR(1)','NN DEFAULT N'],
+  ]],
+  ['USER_SESSIONS',     'auth',   850,  520, [
+    ['session_id','RAW(16)','PK SYS_GUID()'],
+    ['user_id','NUMBER','FK → USERS NN'],
+    ['branch_id','NUMBER','FK → BRANCHES'],
+    ['role','VARCHAR2(20)','NN'],
+    ['created_at','TIMESTAMP TZ','NN'],
+    ['expires_at','TIMESTAMP TZ','NN'],
+    ['ip_address','VARCHAR2(45)',''],
+  ]],
+  ['PERMISSION_MATRIX', 'auth',  1200,  480, [
+    ['perm_id','NUMBER IDENTITY','PK'],
+    ['role','VARCHAR2(20)','NN'],
+    ['resource','VARCHAR2(60)','NN'],
+    ['action','VARCHAR2(20)','NN'],
+    ['scope','VARCHAR2(30)',''],
+    ['is_allowed','CHAR(1)','NN DEFAULT Y'],
+  ]],
+
+  // ── TRANSFER / APPROVALS ──
+  ['TRANSFER_LOG',              'xfer',  140,  780, [
+    ['transfer_id','NUMBER IDENTITY','PK'],
+    ['from_account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['to_account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['amount','NUMBER(15,2)','NN'],
+    ['transfer_type','VARCHAR2(20)','NN'],
+    ['debit_txn_id','NUMBER','FK → TRANSACTIONS'],
+    ['credit_txn_id','NUMBER','FK → TRANSACTIONS'],
+    ['created_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['PENDING_EXTERNAL_TRANSFERS','xfer',  520,  760, [
+    ['transfer_id','NUMBER IDENTITY','PK'],
+    ['account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['beneficiary_id','NUMBER','FK → SAVED_BENEFICIARIES'],
+    ['amount','NUMBER(15,2)','NN'],
+    ['transfer_mode','VARCHAR2(10)','CHK NEFT/RTGS/IMPS'],
+    ['status','VARCHAR2(12)','CHK PENDING/SETTLED/REJECTED'],
+    ['utr_reference','VARCHAR2(30)',''],
+    ['debit_txn_id','NUMBER','FK → TRANSACTIONS'],
+    ['created_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['DUAL_APPROVAL_QUEUE',       'xfer',  930,  760, [
+    ['queue_id','NUMBER IDENTITY','PK'],
+    ['operation_type','VARCHAR2(40)','NN'],
+    ['payload_clob','CLOB',''],
+    ['requested_by','NUMBER','FK → USERS NN'],
+    ['approver_id','NUMBER','FK → USERS'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['status','VARCHAR2(10)','CHK PENDING/APPROVED/REJECTED'],
+    ['created_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['SAVED_BENEFICIARIES',       'xfer',  200,  990, [
+    ['beneficiary_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['account_number','VARCHAR2(20)','NN'],
+    ['ifsc_code','VARCHAR2(15)','NN'],
+    ['bank_name','VARCHAR2(80)',''],
+    ['nickname','VARCHAR2(60)',''],
+    ['activation_status','VARCHAR2(10)','CHK PENDING/ACTIVE'],
+    ['activation_date','TIMESTAMP TZ',''],
+  ]],
+
+  // ── LOAN MODULE ──
+  ['LOAN_APPLICATIONS', 'loan',  1620,  130, [
+    ['loan_app_id','RAW(16)','PK SYS_GUID()'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['loan_type','VARCHAR2(12)','CHK types'],
+    ['requested_amount','NUMBER(15,2)','NN'],
+    ['tenure_months','NUMBER(3)','NN'],
+    ['annual_rate','NUMBER(5,3)','NN'],
+    ['linked_account_id','NUMBER','FK → ACCOUNTS'],
+    ['status','VARCHAR2(15)','state machine'],
+    ['applied_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['LOAN_ACCOUNTS',     'loan',  1980,  320, [
+    ['loan_account_id','VARCHAR2(20)','PK'],
+    ['loan_app_id','RAW(16)','FK → LOAN_APPLICATIONS NN'],
+    ['disbursed_amount','NUMBER(15,2)','NN'],
+    ['outstanding_principal','NUMBER(15,2)','NN'],
+    ['disbursement_txn_id','NUMBER','FK → TRANSACTIONS'],
+    ['status','VARCHAR2(15)','CHK ACTIVE/CLOSED/DEFAULT'],
+    ['disbursed_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['EMI_SCHEDULE',      'loan',  2300,  130, [
+    ['emi_id','NUMBER IDENTITY','PK'],
+    ['loan_account_id','VARCHAR2(20)','FK → LOAN_ACCOUNTS NN'],
+    ['emi_number','NUMBER(3)','NN'],
+    ['due_date','DATE','NN'],
+    ['emi_amount','NUMBER(15,2)','NN'],
+    ['principal_component','NUMBER(15,2)','NN'],
+    ['interest_component','NUMBER(15,2)','NN'],
+    ['closing_balance','NUMBER(15,2)','NN'],
+    ['status','VARCHAR2(12)','CHK PENDING/PAID/OVERDUE'],
+    ['penalty_amount','NUMBER(15,2)','DEFAULT 0'],
+  ]],
+  ['LOAN_PAYMENTS',     'loan',  2300,  430, [
+    ['payment_id','NUMBER IDENTITY','PK'],
+    ['emi_id','NUMBER','FK → EMI_SCHEDULE NN'],
+    ['loan_account_id','VARCHAR2(20)','FK → LOAN_ACCOUNTS'],
+    ['payment_txn_id','NUMBER','FK → TRANSACTIONS NN'],
+    ['amount_paid','NUMBER(15,2)','NN'],
+    ['penalty_paid','NUMBER(15,2)','DEFAULT 0'],
+    ['payment_ref','VARCHAR2(30)','UQ via sequence'],
+    ['paid_at','TIMESTAMP TZ','NN'],
+  ]],
+
+  // ── NEW MODULES ──
+  ['KYC_DETAILS',       'newmod', 500,  980, [
+    ['kyc_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['document_type','VARCHAR2(12)','CHK PAN/AADHAAR/PASSPORT'],
+    ['doc_number_masked','VARCHAR2(20)','NN'],
+    ['expiry_date','DATE',''],
+    ['kyc_status','VARCHAR2(10)','CHK VERIFIED/PENDING/EXPIRED'],
+    ['verified_by','NUMBER','FK → EMPLOYEES'],
+    ['verified_at','TIMESTAMP TZ',''],
+  ]],
+  ['FD_ACCOUNTS',       'newmod', 850,  970, [
+    ['fd_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['linked_account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['principal_amount','NUMBER(15,2)','NN'],
+    ['tenure_months','NUMBER(3)','NN'],
+    ['locked_rate','NUMBER(5,3)','NN'],
+    ['maturity_date','DATE','NN'],
+    ['auto_renewal_flag','CHAR(1)','DEFAULT N'],
+    ['status','VARCHAR2(12)','CHK ACTIVE/MATURED/CLOSED'],
+    ['opened_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['RD_ACCOUNTS',       'newmod',1180,  970, [
+    ['rd_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['linked_account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['monthly_instalment','NUMBER(15,2)','NN'],
+    ['tenure_months','NUMBER(3)','NN'],
+    ['instalments_paid','NUMBER(3)','DEFAULT 0'],
+    ['rate','NUMBER(5,3)','NN'],
+    ['maturity_date','DATE','NN'],
+    ['status','VARCHAR2(12)','CHK ACTIVE/MATURED/CLOSED'],
+  ]],
+  ['STANDING_INSTRUCTIONS','newmod',1510,  970, [
+    ['instruction_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['debit_account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['credit_reference','VARCHAR2(40)','NN'],
+    ['instruction_type','VARCHAR2(15)','CHK types'],
+    ['amount','NUMBER(15,2)','NN'],
+    ['frequency','VARCHAR2(12)','CHK DAILY/WEEKLY/MONTHLY'],
+    ['start_date','DATE','NN'],
+    ['end_date','DATE',''],
+    ['next_execution_date','DATE',''],
+    ['status','VARCHAR2(10)','CHK ACTIVE/PAUSED/EXPIRED'],
+    ['failure_count','NUMBER(2)','DEFAULT 0'],
+  ]],
+  ['CHEQUE_BOOKS',      'newmod', 500, 1200, [
+    ['book_id','NUMBER IDENTITY','PK'],
+    ['account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['start_cheque_number','VARCHAR2(10)','NN'],
+    ['end_cheque_number','VARCHAR2(10)','NN'],
+    ['leaves_count','NUMBER(3)','NN'],
+    ['issued_by','NUMBER','FK → EMPLOYEES NN'],
+    ['issued_at','TIMESTAMP TZ','NN'],
+    ['status','VARCHAR2(10)','CHK ACTIVE/USED/CANCELLED'],
+  ]],
+  ['CHEQUES',           'newmod', 850, 1200, [
+    ['cheque_id','NUMBER IDENTITY','PK'],
+    ['cheque_number','VARCHAR2(10)','NN'],
+    ['book_id','NUMBER','FK → CHEQUE_BOOKS NN'],
+    ['drawee_account_id','NUMBER','FK → ACCOUNTS'],
+    ['payee_account_id','NUMBER','FK → ACCOUNTS'],
+    ['amount','NUMBER(15,2)','NN'],
+    ['presented_at','TIMESTAMP TZ',''],
+    ['cleared_at','TIMESTAMP TZ',''],
+    ['status','VARCHAR2(12)','CHK PRESENTED/CLEARED/BOUNCED'],
+    ['debit_txn_id','NUMBER','FK → TRANSACTIONS'],
+  ]],
+  ['STOP_PAYMENT_INSTRUCTIONS','newmod',1180,1210, [
+    ['stop_id','NUMBER IDENTITY','PK'],
+    ['cheque_number','VARCHAR2(10)','NN'],
+    ['account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['book_id','NUMBER','FK → CHEQUE_BOOKS'],
+    ['reason','VARCHAR2(200)','NN'],
+    ['recorded_by','NUMBER','FK → EMPLOYEES NN'],
+    ['status','VARCHAR2(10)','CHK ACTIVE/REVOKED'],
+    ['created_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['DEBIT_CARDS',       'newmod', 200, 1210, [
+    ['card_id','NUMBER IDENTITY','PK'],
+    ['account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['card_number_masked','VARCHAR2(20)','NN'],
+    ['expiry_date','DATE','NN'],
+    ['status','VARCHAR2(10)','CHK ACTIVE/BLOCKED/EXPIRED'],
+    ['issued_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['SERVICE_REQUESTS',  'newmod',1510,1210, [
+    ['request_id','NUMBER IDENTITY','PK'],
+    ['customer_id','NUMBER','FK → CUSTOMERS NN'],
+    ['branch_id','NUMBER','FK → BRANCHES NN'],
+    ['request_type','VARCHAR2(20)','CHK types'],
+    ['details_clob','CLOB',''],
+    ['status','VARCHAR2(14)','CHK RAISED/IN_PROGRESS/...'],
+    ['raised_by','NUMBER','FK → USERS NN'],
+    ['assigned_to','NUMBER','FK → EMPLOYEES'],
+    ['resolution_note','CLOB',''],
+    ['created_at','TIMESTAMP TZ','NN'],
+    ['resolved_at','TIMESTAMP TZ',''],
+  ]],
+
+  // ── AUDIT & COMPLIANCE ──
+  ['AUDIT_LOG',              'audit',1680,  500, [
+    ['audit_id','NUMBER IDENTITY','PK'],
+    ['table_name','VARCHAR2(60)','NN'],
+    ['operation','VARCHAR2(10)','CHK INSERT/UPDATE/DELETE'],
+    ['record_id','VARCHAR2(40)','NN'],
+    ['old_value_clob','CLOB',''],
+    ['new_value_clob','CLOB',''],
+    ['actor_user_id','NUMBER','FK → USERS'],
+    ['branch_id','NUMBER','FK → BRANCHES'],
+    ['changed_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['COMPLIANCE_FLAGS',       'audit',1680,  740, [
+    ['flag_id','NUMBER IDENTITY','PK'],
+    ['account_id','NUMBER','FK → ACCOUNTS'],
+    ['loan_account_id','VARCHAR2(20)','FK → LOAN_ACCOUNTS'],
+    ['flag_type','VARCHAR2(40)','NN'],
+    ['severity','VARCHAR2(8)','CHK LOW/MEDIUM/HIGH'],
+    ['description','VARCHAR2(400)','NN'],
+    ['raised_by_proc','VARCHAR2(60)',''],
+    ['raised_at','TIMESTAMP TZ','NN'],
+    ['resolved_at','TIMESTAMP TZ',''],
+  ]],
+  ['PROCEDURE_EXECUTION_LOG','audit',1980,  560, [
+    ['log_id','NUMBER IDENTITY','PK'],
+    ['proc_name','VARCHAR2(80)','NN'],
+    ['called_by','NUMBER','FK → USERS'],
+    ['input_params','CLOB',''],
+    ['status','VARCHAR2(10)','CHK SUCCESS/FAILED'],
+    ['error_code','VARCHAR2(20)',''],
+    ['duration_ms','NUMBER(8)',''],
+    ['called_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['NOTIFICATION_LOG',       'audit',1980,  760, [
+    ['notif_id','NUMBER IDENTITY','PK'],
+    ['user_id','NUMBER','FK → USERS'],
+    ['customer_id','NUMBER','FK → CUSTOMERS'],
+    ['trigger_event','VARCHAR2(60)','NN'],
+    ['channel','VARCHAR2(10)','CHK SMS/EMAIL/APP'],
+    ['message_clob','CLOB','NN'],
+    ['status','VARCHAR2(10)','CHK QUEUED/SENT/FAILED'],
+    ['created_at','TIMESTAMP TZ','NN'],
+  ]],
+  ['INTEREST_ACCRUAL_LOG',   'audit',1680,  950, [
+    ['accrual_id','NUMBER IDENTITY','PK'],
+    ['account_id','NUMBER','FK → ACCOUNTS NN'],
+    ['batch_id','VARCHAR2(40)','FK → ACCRUAL_BATCH'],
+    ['interest_amount','NUMBER(15,5)','NN'],
+    ['credit_txn_id','NUMBER','FK → TRANSACTIONS'],
+    ['accrual_date','DATE','NN'],
+    ['rate_applied','NUMBER(5,3)','NN'],
+  ]],
+
+  // ── CONFIG / SCHEDULER ──
+  ['SYSTEM_CONFIG',          'config', 200, 1440, [
+    ['config_id','NUMBER IDENTITY','PK'],
+    ['config_key','VARCHAR2(80)','UQ NN'],
+    ['config_value','VARCHAR2(400)','NN'],
+    ['data_type','VARCHAR2(20)','NN'],
+    ['description','VARCHAR2(200)',''],
+    ['updated_by','NUMBER','FK → USERS'],
+    ['updated_at','TIMESTAMP TZ',''],
+  ]],
+  ['FEE_SCHEDULE',           'config', 510, 1440, [
+    ['fee_id','NUMBER IDENTITY','PK'],
+    ['fee_type','VARCHAR2(40)','NN'],
+    ['account_type_id','NUMBER','FK → ACCOUNT_TYPES'],
+    ['amount','NUMBER(15,2)','NN'],
+    ['percentage_rate','NUMBER(5,3)',''],
+    ['effective_from','DATE','NN'],
+    ['created_by','NUMBER','FK → USERS'],
+  ]],
+  ['ACCRUAL_BATCH_CONTROL',  'config', 850, 1430, [
+    ['batch_id','VARCHAR2(40)','PK'],
+    ['batch_date','DATE','NN'],
+    ['partition_mod','NUMBER(2)','NN'],
+    ['status','VARCHAR2(10)','CHK RUNNING/DONE/FAILED'],
+    ['started_at','TIMESTAMP TZ',''],
+    ['completed_at','TIMESTAMP TZ',''],
+    ['records_processed','NUMBER(8)','DEFAULT 0'],
+  ]],
+];
+
+// FK relationships: [fromTable, toTable, label]
+const ER_RELATIONS = [
+  // core
+  ['ACCOUNTS','CUSTOMERS','customer_id'],
+  ['ACCOUNTS','BRANCHES','branch_id'],
+  ['ACCOUNTS','ACCOUNT_TYPES','type_id'],
+  ['TRANSACTIONS','ACCOUNTS','account_id'],
+  ['TRANSACTIONS','USERS','initiated_by'],
+  ['BRANCHES','EMPLOYEES','manager_id'],
+  ['CUSTOMERS','BRANCHES','branch_id'],
+  ['USERS','CUSTOMERS','customer_id'],
+  ['USERS','EMPLOYEES','employee_id'],
+  ['EMPLOYEES','BRANCHES','branch_id'],
+  ['USER_SESSIONS','USERS','user_id'],
+  ['USER_SESSIONS','BRANCHES','branch_id'],
+  // transfers
+  ['TRANSFER_LOG','ACCOUNTS','from_account_id'],
+  ['PENDING_EXTERNAL_TRANSFERS','ACCOUNTS','account_id'],
+  ['PENDING_EXTERNAL_TRANSFERS','SAVED_BENEFICIARIES','beneficiary_id'],
+  ['PENDING_EXTERNAL_TRANSFERS','TRANSACTIONS','debit_txn_id'],
+  ['DUAL_APPROVAL_QUEUE','USERS','requested_by'],
+  ['DUAL_APPROVAL_QUEUE','BRANCHES','branch_id'],
+  ['SAVED_BENEFICIARIES','CUSTOMERS','customer_id'],
+  // loan
+  ['LOAN_APPLICATIONS','CUSTOMERS','customer_id'],
+  ['LOAN_APPLICATIONS','BRANCHES','branch_id'],
+  ['LOAN_APPLICATIONS','ACCOUNTS','linked_account_id'],
+  ['LOAN_ACCOUNTS','LOAN_APPLICATIONS','loan_app_id'],
+  ['LOAN_ACCOUNTS','TRANSACTIONS','disbursement_txn_id'],
+  ['EMI_SCHEDULE','LOAN_ACCOUNTS','loan_account_id'],
+  ['LOAN_PAYMENTS','EMI_SCHEDULE','emi_id'],
+  ['LOAN_PAYMENTS','TRANSACTIONS','payment_txn_id'],
+  ['LOAN_PAYMENTS','LOAN_ACCOUNTS','loan_account_id'],
+  // new modules
+  ['KYC_DETAILS','CUSTOMERS','customer_id'],
+  ['KYC_DETAILS','EMPLOYEES','verified_by'],
+  ['FD_ACCOUNTS','CUSTOMERS','customer_id'],
+  ['FD_ACCOUNTS','ACCOUNTS','linked_account_id'],
+  ['FD_ACCOUNTS','BRANCHES','branch_id'],
+  ['RD_ACCOUNTS','CUSTOMERS','customer_id'],
+  ['RD_ACCOUNTS','ACCOUNTS','linked_account_id'],
+  ['STANDING_INSTRUCTIONS','CUSTOMERS','customer_id'],
+  ['STANDING_INSTRUCTIONS','ACCOUNTS','debit_account_id'],
+  ['CHEQUE_BOOKS','ACCOUNTS','account_id'],
+  ['CHEQUE_BOOKS','EMPLOYEES','issued_by'],
+  ['CHEQUES','CHEQUE_BOOKS','book_id'],
+  ['CHEQUES','ACCOUNTS','drawee_account_id'],
+  ['CHEQUES','TRANSACTIONS','debit_txn_id'],
+  ['STOP_PAYMENT_INSTRUCTIONS','ACCOUNTS','account_id'],
+  ['STOP_PAYMENT_INSTRUCTIONS','CHEQUE_BOOKS','book_id'],
+  ['DEBIT_CARDS','ACCOUNTS','account_id'],
+  ['DEBIT_CARDS','CUSTOMERS','customer_id'],
+  ['SERVICE_REQUESTS','CUSTOMERS','customer_id'],
+  ['SERVICE_REQUESTS','BRANCHES','branch_id'],
+  ['SERVICE_REQUESTS','USERS','raised_by'],
+  // audit
+  ['COMPLIANCE_FLAGS','ACCOUNTS','account_id'],
+  ['COMPLIANCE_FLAGS','LOAN_ACCOUNTS','loan_account_id'],
+  ['PROCEDURE_EXECUTION_LOG','USERS','called_by'],
+  ['NOTIFICATION_LOG','USERS','user_id'],
+  ['NOTIFICATION_LOG','CUSTOMERS','customer_id'],
+  ['INTEREST_ACCRUAL_LOG','ACCOUNTS','account_id'],
+  ['INTEREST_ACCRUAL_LOG','TRANSACTIONS','credit_txn_id'],
+  ['FEE_SCHEDULE','ACCOUNT_TYPES','account_type_id'],
+  ['FEE_SCHEDULE','USERS','created_by'],
+  ['SYSTEM_CONFIG','USERS','updated_by'],
+];
+
+// ════════════════════════════════════════════════════════
+// CLASS DIAGRAM DATA
+// ════════════════════════════════════════════════════════
+// [name, domain, x, y, stereotype, attributes[], methods[]]
+const CLASS_NODES = [
+  // ── ABSTRACT BASE ──
+  ['BaseRole','base', 1200, 60, '<<abstract>>',
+    ['#user_id: NUMBER','#session_id: RAW(16)','#branch_id: NUMBER','#role: VARCHAR2(20)'],
+    ['+authenticate()','#validateScope()','#log()']],
+  ['BankEmployeeRole','base', 800, 220, '<<abstract>>',
+    ['#employee_id: NUMBER','#branch_id: NUMBER'],
+    ['+viewBranchReport()']],
+
+  // ── ROLES ──
+  ['CustomerRole','role', 200, 400, '<<role>>',
+    ['-customer_id: NUMBER','-linked_accounts: List<Account>'],
+    ['+transferFunds()','  sp_internal_transfer()','  sp_initiate_external_transfer()','+viewStatement()','  sp_generate_statement()','+manageBeneficiaries()','  sp_create_service_request()','+manageStandingInstructions()','  sp_create_standing_instruction()']],
+
+  ['TellerRole','role', 650, 400, '<<role>>',
+    ['-teller_id: NUMBER','-shift_branch_id: NUMBER'],
+    ['+cashDeposit()','  sp_deposit()','+cashWithdraw()','  sp_withdraw()','+openAccount()','  sp_open_account()','+openFD()  sp_open_fd()','+openRD()  sp_open_rd()','+verifyKYC()','  sp_verify_kyc()','+issueChequeBook()','  sp_issue_cheque_book()','+recordStopPayment()','  sp_record_stop_payment()']],
+
+  ['BranchManagerRole','role', 1100, 400, '<<role>>',
+    ['-manager_id: NUMBER'],
+    ['+approveDualQueue()','  sp_approve_dual_queue()','+setAccountStatus()','  sp_set_account_status()','+approveExternalTransfer()','  sp_approve_external_transfer()','+generateMIS()','  sp_generate_branch_mis()','+processFDMaturity()','  sp_process_fd_maturity()','+resolveServiceRequest()','  sp_resolve_service_request()']],
+
+  ['LoanManagerRole','role', 1550, 400, '<<role>>',
+    ['-loan_mgr_id: NUMBER'],
+    ['+disburseLoan()','  sp_disburse_loan()','+recordEMIPayment()','  sp_record_emi_payment()','+generateEMISchedule()','  sp_generate_emi_schedule()','+closeLoan()','  sp_close_loan()','+prepayLoan()','  sp_loan_prepayment()','+forecloseLoan()','  sp_foreclose_loan()']],
+
+  ['SystemAdminRole','role', 2000, 400, '<<role>>',
+    ['-admin_id: NUMBER'],
+    ['+updateSystemConfig()','  sp_update_system_config()','+manageUserRole()','  sp_manage_user_role()','+manageFeeSchedule()','+viewBankWideMIS()','+configureScheduler()']],
+
+  // ── ENTITY CLASSES ──
+  ['Customer','entity', 200, 780, '<<entity>>',
+    ['-customer_id: NUMBER (PK)','-branch_id: NUMBER (FK)','-full_name: VARCHAR2','-pan_masked: VARCHAR2','-mobile: VARCHAR2','-kyc_status: VARCHAR2'],
+    ['+getAccounts(): List<Account>','+getKYCStatus(): KYCDetails','+getLoans(): List<LoanApplication>']],
+
+  ['Account','entity', 580, 780, '<<entity>>',
+    ['-account_id: NUMBER (PK)','-account_number: VARCHAR2 (UQ)','-customer_id: NUMBER (FK)','-balance: NUMBER','-status: VARCHAR2','-type: AccountType'],
+    ['+getBalance(): NUMBER','+getTransactions(): List<Transaction>','+validateBalance(amount)']],
+
+  ['Transaction','entity', 960, 780, '<<entity>>',
+    ['-txn_id: NUMBER (PK)','-account_id: NUMBER (FK)','-txn_type: VARCHAR2','-amount: NUMBER','-transaction_source: VARCHAR2','-txn_timestamp: TIMESTAMP'],
+    ['+getDetails(): TxnDetails']],
+
+  ['LoanApplication','entity', 1350, 780, '<<entity>>',
+    ['-loan_app_id: RAW(16) (PK)','-customer_id: NUMBER (FK)','-loan_type: VARCHAR2','-requested_amount: NUMBER','-annual_rate: NUMBER','-status: VARCHAR2'],
+    ['+calculateEMI(): NUMBER','  formula: P×r(1+r)ⁿ/((1+r)ⁿ−1)']],
+
+  ['LoanAccount','entity', 1350, 1020, '<<entity>>',
+    ['-loan_account_id: VARCHAR2 (PK)','-disbursed_amount: NUMBER','-outstanding_principal: NUMBER','-status: VARCHAR2'],
+    ['+getEMISchedule(): List<EMI>','+calculateOutstanding(): NUMBER']],
+
+  ['EMISchedule','entity', 1700, 1020, '<<entity>>',
+    ['-emi_id: NUMBER (PK)','-loan_account_id: VARCHAR2 (FK)','-emi_number: NUMBER','-due_date: DATE','-emi_amount: NUMBER','-status: VARCHAR2'],
+    []],
+
+  // ── SERVICE LAYER ──
+  ['TransactionService','service', 600, 1070, '<<service>>',
+    [],
+    ['sp_deposit(account_id, amount, teller)',
+     'sp_withdraw(account_id, amount, teller)',
+     'sp_internal_transfer(sender, receiver, amount)',
+     'sp_initiate_external_transfer(account, beneficiary, mode)',
+     'sp_approve_external_transfer(transfer_id)']],
+
+  ['LoanService','service', 1000, 1070, '<<service>>',
+    [],
+    ['sp_disburse_loan(loan_app_id, manager)',
+     'sp_generate_emi_schedule(loan_account_id)',
+     'sp_record_emi_payment(emi_id, amount)',
+     'sp_loan_prepayment(loan_account_id, amount)',
+     'sp_foreclose_loan(loan_account_id)',
+     'sp_close_loan(loan_account_id)',
+     'sp_mark_loan_overdue()  ← Scheduler']],
+
+  ['AccountService','service', 200, 1070, '<<service>>',
+    [],
+    ['sp_open_account(customer, type, deposit)',
+     'sp_set_account_status(account, status)',
+     'sp_open_fd(customer, account, amount, tenure)',
+     'sp_open_rd(customer, account, instalment, tenure)',
+     'sp_process_fd_maturity(fd_account_id)',
+     'sp_verify_kyc(customer, doc_type, number)',
+     'sp_issue_cheque_book(account, leaves)',
+     'sp_record_stop_payment(cheque_number, account)']],
+
+  ['MISService','service', 1900, 780, '<<service>>',
+    [],
+    ['v_loan_interest_income  ← VIEW',
+     'v_deposit_interest_expense  ← VIEW',
+     'v_branch_fee_income  ← VIEW',
+     'sp_generate_branch_mis(branch, from, to)',
+     '  NII = interest_income − interest_expense']],
+
+  ['SchedulerService','service', 1900, 1020, '<<service>>',
+    [],
+    ['sp_accrue_interest_chunk()  22:00–07:00',
+     'sp_execute_standing_instruction()  07:00',
+     'sp_deduct_service_charge()  1st monthly',
+     'sp_process_fd_maturity()  08:00 daily',
+     'sp_mark_loan_overdue()  06:00 daily',
+     'KYC expiry scanner  weekly',
+     'RD instalment scheduler  monthly']],
+];
+
+const CLASS_RELATIONS = [
+  // inheritance: [from, to, type]
+  ['BankEmployeeRole','BaseRole','inherit'],
+  ['CustomerRole','BaseRole','inherit'],
+  ['TellerRole','BankEmployeeRole','inherit'],
+  ['BranchManagerRole','BankEmployeeRole','inherit'],
+  ['LoanManagerRole','BankEmployeeRole','inherit'],
+  ['SystemAdminRole','BankEmployeeRole','inherit'],
+  // entity associations
+  ['Account','Customer','assoc','N..1'],
+  ['Transaction','Account','assoc','N..1'],
+  ['LoanApplication','Customer','assoc','N..1'],
+  ['LoanAccount','LoanApplication','compose','1..1'],
+  ['EMISchedule','LoanAccount','compose','N..1'],
+  // service to entity
+  ['TransactionService','Transaction','create',''],
+  ['TransactionService','Account','uses',''],
+  ['LoanService','LoanAccount','uses',''],
+  ['LoanService','EMISchedule','creates',''],
+  ['AccountService','Account','creates',''],
+  ['MISService','Transaction','reads',''],
+  // role to service
+  ['CustomerRole','TransactionService','calls',''],
+  ['TellerRole','TransactionService','calls',''],
+  ['TellerRole','AccountService','calls',''],
+  ['BranchManagerRole','MISService','calls',''],
+  ['LoanManagerRole','LoanService','calls',''],
+];
+
+// ════════════════════════════════════════════════════════
+// RENDERING ENGINE
+// ════════════════════════════════════════════════════════
+
+const TABLE_W = 240;
+const TABLE_HDR = 30;
+const TABLE_ROW = 18;
+const TABLE_PAD = 2;
+
+function tableHeight(cols) {
+  return TABLE_HDR + cols.length * TABLE_ROW + TABLE_PAD * 2;
+}
+
+function domainStyle(d) {
+  return DOMAINS[d] || DOMAINS.core;
+}
+
+// Build ER SVG
+function buildER() {
+  const root = document.getElementById('er-root');
+  root.innerHTML = '';
+
+  // index tables by name
+  const tableMap = {};
+  ER_TABLES.forEach(t => {
+    const th = tableHeight(t[4]);
+    tableMap[t[0]] = {x:t[2], y:t[3], cols:t[4], domain:t[1], h:th,
+      cx: t[2] + TABLE_W/2,
+      cy: t[3] + th/2};
+  });
+
+  // Draw relationship lines first (behind tables)
+  const linesG = svgElem('g', {id:'er-lines'});
+  ER_RELATIONS.forEach(([from, to]) => {
+    const f = tableMap[from]; const tt = tableMap[to];
+    if (!f || !tt) return;
+    const [x1,y1,x2,y2] = bezierPoints(f,tt);
+    const path = svgElem('path', {
+      d:`M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`,
+      stroke:'rgba(80,110,150,0.4)', 'stroke-width':'1.2',
+      fill:'none', 'marker-end':'url(#arr-fk)'
+    });
+    linesG.appendChild(path);
+  });
+  root.appendChild(linesG);
+
+  // Draw tables
+  ER_TABLES.forEach(([name, domain, x, y, cols]) => {
+    const ds = domainStyle(domain);
+    const h = tableHeight(cols);
+    const g = svgElem('g', {transform:`translate(${x},${y})`, class:'er-table', 'data-name':name});
+
+    // shadow rect
+    g.appendChild(svgElem('rect', {x:'3',y:'3',width:TABLE_W,height:h,rx:'6',
+      fill:'rgba(0,0,0,0.35)'}));
+
+    // body rect
+    g.appendChild(svgElem('rect', {x:'0',y:'0',width:TABLE_W,height:h,rx:'6',
+      fill:ds.light, stroke:ds.border,'stroke-width':'1'}));
+
+    // header
+    g.appendChild(svgElem('rect', {x:'0',y:'0',width:TABLE_W,height:TABLE_HDR,rx:'6',
+      fill:ds.color}));
+    g.appendChild(svgElem('rect', {x:'0',y:TABLE_HDR-8,width:TABLE_W,height:'8',fill:ds.color}));
+
+    const titleText = svgElem('text', {
+      x: TABLE_W/2, y:TABLE_HDR/2+5,
+      'text-anchor':'middle','dominant-baseline':'middle',
+      'font-family':"'DM Mono',monospace",'font-size':'11','font-weight':'500',
+      fill:'#FFFFFF','letter-spacing':'0.06em'
+    });
+    titleText.textContent = name;
+    g.appendChild(titleText);
+
+    // columns
+    cols.forEach((col, i) => {
+      const cy = TABLE_HDR + TABLE_PAD + i * TABLE_ROW;
+      const isPK = col[2].includes('PK');
+      const isFK = col[2].includes('FK');
+
+      if (i % 2 === 0) {
+        g.appendChild(svgElem('rect', {x:'0',y:cy,width:TABLE_W,height:TABLE_ROW,
+          fill:'rgba(255,255,255,0.03)'}));
+      }
+
+      if (isPK) {
+        g.appendChild(svgElem('rect',{x:'2',y:cy+2,width:'3',height:TABLE_ROW-4,rx:'1',fill:'#E8B84B'}));
+      } else if (isFK) {
+        g.appendChild(svgElem('rect',{x:'2',y:cy+2,width:'3',height:TABLE_ROW-4,rx:'1',fill:'rgba(100,160,255,0.6)'}));
+      }
+
+      const colName = svgElem('text', {
+        x:'10', y:cy+TABLE_ROW/2+1,
+        'dominant-baseline':'middle',
+        'font-family':"'DM Mono',monospace",'font-size':'9',
+        fill: isPK ? '#F5D07A' : isFK ? '#99CAFF' : 'rgba(220,215,205,0.85)',
+        'font-weight': isPK ? '500' : '400'
+      });
+      colName.textContent = col[0];
+      g.appendChild(colName);
+
+      const colType = svgElem('text', {
+        x: TABLE_W - 4, y:cy+TABLE_ROW/2+1,
+        'text-anchor':'end','dominant-baseline':'middle',
+        'font-family':"'DM Mono',monospace",'font-size':'8',
+        fill:'rgba(140,160,180,0.7)'
+      });
+      colType.textContent = col[2].replace(/FK → .+/,'FK').substring(0,16);
+      g.appendChild(colType);
+    });
+
+    // bottom border
+    g.appendChild(svgElem('rect',{x:'0',y:h-1,width:TABLE_W,height:'1',rx:'0',fill:ds.border}));
+
+    root.appendChild(g);
+  });
+
+  // compute bounding box for viewBox
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  ER_TABLES.forEach(([,, x, y, cols]) => {
+    minX=Math.min(minX,x); minY=Math.min(minY,y);
+    maxX=Math.max(maxX,x+TABLE_W); maxY=Math.max(maxY,y+tableHeight(cols));
+  });
+  const pad=80;
+  erVB = {x:minX-pad, y:minY-pad, w:(maxX-minX)+pad*2, h:(maxY-minY)+pad*2};
+  erState.vb = {...erVB};
+  applyVB('er');
+}
+
+function bezierPoints(f,t) {
+  const dx = t.cx - f.cx;
+  const dy = t.cy - f.cy;
+  let x1,y1,x2,y2;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    x1 = dx > 0 ? f.cx + TABLE_W/2 : f.cx - TABLE_W/2;
+    y1 = f.cy;
+    x2 = dx > 0 ? t.cx - TABLE_W/2 : t.cx + TABLE_W/2;
+    y2 = t.cy;
+  } else {
+    x1 = f.cx; y1 = dy > 0 ? f.cy + (f.h||20)/2 : f.cy - (f.h||20)/2;
+    x2 = t.cx; y2 = dy > 0 ? t.cy - (t.h||20)/2 : t.cy + (t.h||20)/2;
+  }
+  return [x1,y1,x2,y2];
+}
+
+// Build Class SVG
+const CLASS_W = 280;
+const CLASS_HDR = 36;
+const CLASS_STEREO = 20;
+const CLASS_ROW = 17;
+const CLASS_METHOD_ROW = 15;
+const CLASS_SEP = 8;
+
+function classHeight(attrs, methods) {
+  return CLASS_HDR + CLASS_STEREO + (attrs.length ? attrs.length*CLASS_ROW + CLASS_SEP : 0)
+       + (methods.length ? methods.length*CLASS_METHOD_ROW + CLASS_SEP : 0) + 8;
+}
+
+function buildClass() {
+  const root = document.getElementById('class-root');
+  root.innerHTML = '';
+
+  const nodeMap = {};
+  CLASS_NODES.forEach(n => {
+    const h = classHeight(n[5], n[6]);
+    nodeMap[n[0]] = {x:n[2], y:n[3], w:CLASS_W, h, cx:n[2]+CLASS_W/2, cy:n[3]+h/2, domain:n[1]};
+  });
+
+  const domColors = {
+    base:   {bg:'rgba(138,92,26,0.18)',  hdr:'#8A5C1A',  border:'rgba(138,92,26,0.6)'},
+    role:   {bg:'rgba(92,46,160,0.18)', hdr:'#5C2EA0',  border:'rgba(92,46,160,0.6)'},
+    entity: {bg:'rgba(26,92,138,0.18)', hdr:'#1A5C8A',  border:'rgba(26,92,138,0.6)'},
+    service:{bg:'rgba(26,122,74,0.18)', hdr:'#1A7A4A',  border:'rgba(26,122,74,0.6)'},
+  };
+
+  // lines first
+  const linesG = svgElem('g');
+  CLASS_RELATIONS.forEach(([from, to, type]) => {
+    const f = nodeMap[from]; const t = nodeMap[to];
+    if(!f||!t) return;
+    const dx = t.cx-f.cx, dy = t.cy-f.cy;
+    let x1,y1,x2,y2;
+    if(Math.abs(dx)>Math.abs(dy)){
+      x1=dx>0?f.cx+CLASS_W/2:f.cx-CLASS_W/2; y1=f.cy;
+      x2=dx>0?t.cx-CLASS_W/2:t.cx+CLASS_W/2; y2=t.cy;
+    } else {
+      x1=f.cx; y1=dy>0?f.cy+f.h/2:f.cy-f.h/2;
+      x2=t.cx; y2=dy>0?t.cy-t.h/2:t.cy+t.h/2;
+    }
+    const mid = `${(x1+x2)/2},${(y1+y2)/2}`;
+    const strokeStyle = type==='inherit'
+      ? 'rgba(100,160,255,0.6)' : type==='compose'
+      ? 'rgba(61,184,138,0.5)' : 'rgba(100,130,170,0.35)';
+    const dashStyle = type==='inherit' ? '6,4' : type==='reads'||type==='uses' ? '3,3' : 'none';
+    const marker = type==='inherit' ? 'url(#carr-hollow)' : type==='compose' ? 'url(#carr-compose)' : 'url(#carr-end)';
+    const path = svgElem('path',{
+      d:`M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`,
+      stroke:strokeStyle,'stroke-width':type==='inherit'?'1.8':'1.2',
+      fill:'none','stroke-dasharray':dashStyle,'marker-end':marker
+    });
+    linesG.appendChild(path);
+  });
+  root.appendChild(linesG);
+
+  CLASS_NODES.forEach(([name, domain, x, y, stereo, attrs, methods]) => {
+    const dc = domColors[domain] || domColors.entity;
+    const h = classHeight(attrs, methods);
+    const g = svgElem('g', {transform:`translate(${x},${y})`});
+
+    // shadow
+    g.appendChild(svgElem('rect',{x:'3',y:'3',width:CLASS_W,height:h,rx:'8',fill:'rgba(0,0,0,0.35)'}));
+    // body
+    g.appendChild(svgElem('rect',{x:'0',y:'0',width:CLASS_W,height:h,rx:'8',fill:dc.bg,stroke:dc.border,'stroke-width':'1'}));
+    // header
+    g.appendChild(svgElem('rect',{x:'0',y:'0',width:CLASS_W,height:CLASS_HDR+CLASS_STEREO,rx:'8',fill:dc.hdr}));
+    g.appendChild(svgElem('rect',{x:'0',y:CLASS_HDR+CLASS_STEREO-6,width:CLASS_W,height:'6',fill:dc.hdr}));
+
+    // stereotype
+    if(stereo){
+      const st = svgElem('text',{x:CLASS_W/2,y:CLASS_STEREO/2+5,'text-anchor':'middle','dominant-baseline':'middle',
+        'font-family':"'DM Mono',monospace",'font-size':'9',fill:'rgba(255,255,255,0.6)','font-style':'italic'});
+      st.textContent = stereo; g.appendChild(st);
+    }
+    // class name
+    const nt = svgElem('text',{x:CLASS_W/2,y:CLASS_STEREO+(CLASS_HDR-CLASS_STEREO)/2+8,'text-anchor':'middle',
+      'font-family':"'DM Sans',sans-serif",'font-size':'13','font-weight':'600',fill:'#FFFFFF'});
+    nt.textContent = name; g.appendChild(nt);
+
+    let curY = CLASS_HDR + CLASS_STEREO + 6;
+
+    // attributes divider
+    if(attrs.length){
+      g.appendChild(svgElem('line',{x1:'0',y1:curY,x2:CLASS_W,y2:curY,stroke:dc.border,'stroke-width':'0.8'}));
+      curY += 4;
+      attrs.forEach(a => {
+        const at = svgElem('text',{x:'8',y:curY+CLASS_ROW/2+1,'dominant-baseline':'middle',
+          'font-family':"'DM Mono',monospace",'font-size':'9',fill:'rgba(210,220,235,0.8)'});
+        at.textContent = a; g.appendChild(at);
+        curY += CLASS_ROW;
+      });
+    }
+
+    // methods divider
+    if(methods.length){
+      curY += 4;
+      g.appendChild(svgElem('line',{x1:'0',y1:curY,x2:CLASS_W,y2:curY,stroke:dc.border,'stroke-width':'0.8'}));
+      curY += 4;
+      methods.forEach(m => {
+        const isProc = m.startsWith(' ');
+        const mt = svgElem('text',{x: isProc?'16':'8', y:curY+CLASS_METHOD_ROW/2+1,'dominant-baseline':'middle',
+          'font-family':"'DM Mono',monospace",'font-size': isProc?'8':'9',
+          fill: isProc ? 'rgba(150,200,255,0.6)' : 'rgba(230,240,200,0.9)'});
+        mt.textContent = m.trim(); g.appendChild(mt);
+        curY += CLASS_METHOD_ROW;
+      });
+    }
+
+    root.appendChild(g);
+  });
+
+  // viewbox
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  CLASS_NODES.forEach(([,, x, y, ,attrs,methods]) => {
+    const h = classHeight(attrs,methods);
+    minX=Math.min(minX,x); minY=Math.min(minY,y);
+    maxX=Math.max(maxX,x+CLASS_W); maxY=Math.max(maxY,y+h);
+  });
+  const pad=80;
+  classVB = {x:minX-pad, y:minY-pad, w:(maxX-minX)+pad*2, h:(maxY-minY)+pad*2};
+  classState.vb = {...classVB};
+  applyVB('class');
+}
+
+function svgElem(tag, attrs={}) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+
+// ════════════════════════════════════════════════════════
+// PAN / ZOOM
+// ════════════════════════════════════════════════════════
+let erVB = {x:0,y:0,w:2800,h:1800};
+let classVB = {x:0,y:0,w:2400,h:1400};
+
+const erState   = {vb:{...erVB},    dragging:false, lastX:0, lastY:0};
+const classState= {vb:{...classVB}, dragging:false, lastX:0, lastY:0};
+
+function getState(which) { return which==='er' ? erState : classState; }
+function getSVG(which)   { return document.getElementById(which+'-svg'); }
+
+function applyVB(which) {
+  const s = getState(which);
+  getSVG(which).setAttribute('viewBox', `${s.vb.x} ${s.vb.y} ${s.vb.w} ${s.vb.h}`);
+}
+
+function zoom(which, factor) {
+  const s = getState(which);
+  const cx = s.vb.x + s.vb.w/2, cy = s.vb.y + s.vb.h/2;
+  s.vb.w *= 1/factor; s.vb.h *= 1/factor;
+  s.vb.x = cx - s.vb.w/2; s.vb.y = cy - s.vb.h/2;
+  applyVB(which);
+}
+
+function resetZoom(which) {
+  const s = getState(which);
+  s.vb = which==='er' ? {...erVB} : {...classVB};
+  applyVB(which);
+}
+
+['er','class'].forEach(which => {
+  const svg = getSVG(which);
+  if(!svg) return;
+
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+    const s = getState(which);
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX-rect.left)/rect.width;
+    const my = (e.clientY-rect.top)/rect.height;
+    const px = s.vb.x + mx*s.vb.w;
+    const py = s.vb.y + my*s.vb.h;
+    s.vb.w /= factor; s.vb.h /= factor;
+    s.vb.x = px - mx*s.vb.w;
+    s.vb.y = py - my*s.vb.h;
+    applyVB(which);
+  }, {passive:false});
+
+  svg.addEventListener('mousedown', e => {
+    const s = getState(which);
+    s.dragging=true; s.lastX=e.clientX; s.lastY=e.clientY;
+  });
+  document.addEventListener('mousemove', e => {
+    const s = getState(which);
+    if(!s.dragging) return;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = s.vb.w/rect.width, scaleY = s.vb.h/rect.height;
+    s.vb.x -= (e.clientX-s.lastX)*scaleX;
+    s.vb.y -= (e.clientY-s.lastY)*scaleY;
+    s.lastX=e.clientX; s.lastY=e.clientY;
+    applyVB(which);
+  });
+  document.addEventListener('mouseup', () => { getState(which).dragging=false; });
+
+  // Touch support
+  let lastDist = 0;
+  svg.addEventListener('touchstart', e => {
+    if(e.touches.length===2){
+      lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                            e.touches[0].clientY-e.touches[1].clientY);
+    } else {
+      const s = getState(which);
+      s.dragging=true; s.lastX=e.touches[0].clientX; s.lastY=e.touches[0].clientY;
+    }
+  });
+  svg.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if(e.touches.length===2){
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                           e.touches[0].clientY-e.touches[1].clientY);
+      zoom(which, d/lastDist); lastDist=d;
+    } else {
+      const s = getState(which);
+      if(!s.dragging) return;
+      const rect = svg.getBoundingClientRect();
+      s.vb.x -= (e.touches[0].clientX-s.lastX)*s.vb.w/rect.width;
+      s.vb.y -= (e.touches[0].clientY-s.lastY)*s.vb.h/rect.height;
+      s.lastX=e.touches[0].clientX; s.lastY=e.touches[0].clientY;
+      applyVB(which);
+    }
+  },{passive:false});
+  svg.addEventListener('touchend', () => { getState(which).dragging=false; });
+});
+
+// ════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════════════════
+function switchTab(which) {
+  document.querySelectorAll('.tab').forEach((t,i)=> t.classList.toggle('active', ['er','class'][i]===which));
+  document.querySelectorAll('.diagram-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+which).classList.add('active');
+  const badge = document.getElementById('er-badge');
+  badge.textContent = which==='er' ? '32 Tables · 67 Relationships' : '20 Classes · 5 Roles · 5 Services';
+}
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+buildER();
+buildClass();
+</script>
+</body>
+</html>
