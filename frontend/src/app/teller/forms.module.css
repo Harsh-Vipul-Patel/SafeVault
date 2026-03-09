@@ -1,0 +1,195 @@
+.pageWrap {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    max-width: 600px;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.headerTitle {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--cream);
+}
+
+.headerSubtitle {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--gold2);
+    font-weight: 500;
+}
+
+.formPanel {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.formGroup label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+}
+
+.input {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.input:focus {
+    border-color: rgba(201, 150, 42, 0.5);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.lookupGroup {
+    display: flex;
+    gap: 12px;
+}
+
+.btnSecondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--gold2);
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 0 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btnSecondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(201, 150, 42, 0.3);
+}
+
+.fetchedDetails {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(61, 214, 140, 0.05);
+    border: 1px solid rgba(61, 214, 140, 0.2);
+    border-radius: 8px;
+    margin-top: -8px;
+}
+
+.fdAvatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(61, 214, 140, 0.2);
+    color: #3DD68C;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.fdName {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--cream);
+}
+
+.fdType {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.inputAmount {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(201, 150, 42, 0.4);
+    color: var(--gold2);
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 700;
+    padding: 16px;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.inputAmount:focus {
+    border-color: #f0c359;
+    box-shadow: 0 0 0 3px rgba(201, 150, 42, 0.1);
+}
+
+.inputAmount::placeholder {
+    color: rgba(201, 150, 42, 0.3);
+}
+
+.btnPrimary {
+    margin-top: 16px;
+    background: var(--gold2);
+    color: var(--navy);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnPrimary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(201, 150, 42, 0.3);
+    filter: brightness(1.05);
+}
+
+.btnPrimary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.message {
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.msgSuccess {
+    background: rgba(61, 214, 140, 0.1);
+    color: #3DD68C;
+    border: 1px solid rgba(61, 214, 140, 0.2);
+}
+
+.msgError {
+    background: rgba(255, 74, 74, 0.1);
+    color: #FF4A4A;
+    border: 1px solid rgba(255, 74, 74, 0.2);
+}

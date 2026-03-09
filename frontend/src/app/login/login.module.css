@@ -1,0 +1,270 @@
+.container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.glowTop {
+    position: absolute;
+    top: -20vh;
+    left: -20vw;
+    width: 60vw;
+    height: 60vh;
+    background: radial-gradient(ellipse at center, rgba(201, 150, 42, 0.15) 0%, transparent 60%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.glowBottom {
+    position: absolute;
+    bottom: -30vh;
+    right: -10vw;
+    width: 70vw;
+    height: 70vh;
+    background: radial-gradient(ellipse at center, rgba(30, 80, 140, 0.25) 0%, transparent 60%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.loginCard {
+    width: 100%;
+    max-width: 440px;
+    background: rgba(22, 32, 50, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 48px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 10;
+    transform: translateY(0);
+    animation: floatUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(40px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.logoStack {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.bankName {
+    font-family: 'Playfair Display', serif;
+    font-size: 38px;
+    font-weight: 900;
+    color: var(--cream);
+    line-height: 1;
+    text-shadow: 0 2px 24px rgba(201, 150, 42, 0.4);
+}
+
+.bankName span {
+    color: var(--gold2);
+}
+
+.tagline {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 12px;
+}
+
+.formContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.errorMsg {
+    background: rgba(255, 60, 60, 0.1);
+    color: #FF8080;
+    border: 1px solid rgba(255, 60, 60, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.inputGroup label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-left: 4px;
+}
+
+.inputGroup input,
+.inputGroup select {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.inputGroup input:focus,
+.inputGroup select:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(201, 150, 42, 0.5);
+    box-shadow: 0 0 0 3px rgba(201, 150, 42, 0.1);
+}
+
+.inputGroup select option {
+    background: var(--navy2);
+    color: var(--cream);
+}
+
+.loginBtn {
+    margin-top: 12px;
+    background: linear-gradient(135deg, var(--gold), var(--gold2));
+    color: var(--navy);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    padding: 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 6px 20px rgba(201, 150, 42, 0.2);
+}
+
+.loginBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(201, 150, 42, 0.3);
+    filter: brightness(1.05);
+}
+
+.loginBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.footerLinks {
+    margin-top: 32px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.footerLinks a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.footerLinks a:hover {
+    color: var(--gold2);
+}
+
+/* DEMO CREDENTIALS GUIDE */
+.credGuideWrap {
+    margin-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 16px;
+}
+
+.credToggle {
+    width: 100%;
+    background: none;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #64748B;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.credToggle:hover {
+    border-color: rgba(201, 150, 42, 0.3);
+    color: #EAB308;
+}
+
+.credGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.credCard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    gap: 2px;
+}
+
+.credCustomer {
+    background: rgba(26, 107, 90, 0.08);
+    border-color: rgba(26, 107, 90, 0.25);
+}
+
+.credCustomer:hover {
+    background: rgba(26, 107, 90, 0.18);
+    transform: scale(1.02);
+}
+
+.credStaff {
+    background: rgba(201, 150, 42, 0.07);
+    border-color: rgba(201, 150, 42, 0.2);
+}
+
+.credStaff:hover {
+    background: rgba(201, 150, 42, 0.15);
+    transform: scale(1.02);
+}
+
+.credLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: #E2E8F0;
+}
+
+.credUser {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #64748B;
+}
+
+.credTag {
+    font-size: 10px;
+    color: #EAB308;
+    margin-top: 2px;
+}

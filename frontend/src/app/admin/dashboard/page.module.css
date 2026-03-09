@@ -1,0 +1,220 @@
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.greeting {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--cream);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.headerActions {
+    display: flex;
+    gap: 12px;
+}
+
+.btnDanger {
+    background: rgba(255, 74, 74, 0.1);
+    color: #FF4A4A;
+    border: 1px solid rgba(255, 74, 74, 0.3);
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnDanger:hover {
+    background: rgba(255, 74, 74, 0.2);
+}
+
+.btnGhost {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--cream);
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 12px 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnGhost:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+/* TELEMETRY CARDS */
+.telemetryGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.resourceCard {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.resTop {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.resValue {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--cream);
+}
+
+.barWrap {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin: 16px 0 12px 0;
+    overflow: hidden;
+}
+
+.barFillOk {
+    height: 100%;
+    background: #3DD68C;
+    border-radius: 2px;
+}
+
+.barFillWarn {
+    height: 100%;
+    background: #E8B84B;
+    border-radius: 2px;
+}
+
+.barFillCrit {
+    height: 100%;
+    background: #FF4A4A;
+    border-radius: 2px;
+}
+
+.resSub {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* MAIN PANELS */
+.dataGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.panel {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panelHeader {
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.panelTitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cream);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.table {
+    width: 100%;
+}
+
+.th {
+    display: grid;
+    grid-template-columns: 80px 1.5fr 2fr 100px;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+}
+
+.td {
+    display: grid;
+    grid-template-columns: 80px 1.5fr 2fr 100px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    font-size: 12px;
+    color: var(--cream);
+    align-items: center;
+}
+
+.monoBlue {
+    font-family: 'DM Mono', monospace;
+    color: #4DA8DA;
+}
+
+.statusOk {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #3DD68C;
+}
+
+.statusCrit {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #FF4A4A;
+}
+
+.logWrap {
+    padding: 16px 20px;
+    background: #05080C;
+    flex: 1;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.logLine {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.logLineWarn {
+    color: #E8B84B;
+}
+
+.logLineCrit {
+    color: #FF4A4A;
+    font-weight: 600;
+}

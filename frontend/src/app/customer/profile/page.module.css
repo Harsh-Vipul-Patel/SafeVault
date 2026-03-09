@@ -1,0 +1,233 @@
+.pageWrap {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 900px;
+}
+
+.pageTitle {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--cream);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: flex-start;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sectionTitle {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cream);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 12px;
+}
+
+.infoList {
+    display: flex;
+    flex-direction: column;
+}
+
+.infoRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.infoRow:last-child {
+    border-bottom: none;
+}
+
+.label {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--cream);
+    text-align: right;
+}
+
+.valueMono {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--gold2);
+    font-weight: 500;
+}
+
+.badgeSuccess {
+    background: rgba(61, 214, 140, 0.1);
+    color: #3DD68C;
+    border: 1px solid rgba(61, 214, 140, 0.2);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+}
+
+.btnGhost {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--cream2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnGhost:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btnLink {
+    background: none;
+    border: none;
+    color: var(--gold2);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 12px;
+}
+
+.btnLinkRed {
+    background: none;
+    border: none;
+    color: #FF4A4A;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 12px;
+}
+
+.btnLink:hover {
+    text-decoration: underline;
+}
+
+.btnLinkRed:hover {
+    text-decoration: underline;
+}
+
+.badgeWarning {
+    background: rgba(234, 179, 8, 0.1);
+    color: #EAB308;
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+}
+
+.errorBanner {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #EF4444;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.loadingState {
+    color: #64748B;
+    font-size: 14px;
+    padding: 40px 0;
+}
+
+.msgSuccess {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.msgError {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.pwdForm {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.formLabel {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+}
+
+.formInput {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #F8FAFC;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    outline: none;
+}
+
+.formInput:focus {
+    border-color: rgba(26, 107, 90, 0.5);
+}
+
+.btnPrimary {
+    background: linear-gradient(135deg, var(--customer, #1A6B5A), #0F4237);
+    color: #F8FAFC;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnPrimary:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.btnPrimary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

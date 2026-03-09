@@ -1,0 +1,191 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.pageTitle {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: #F8FAFC;
+    margin: 0;
+}
+
+/* STATS */
+.statsRow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.statCard {
+    background: #1E2536;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px 24px;
+}
+
+.statLabel {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #64748B;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.statValue {
+    font-size: 36px;
+    font-weight: 800;
+    color: #F8FAFC;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+
+.statValueAlert {
+    color: #EF4444 !important;
+}
+
+.statSub {
+    font-size: 12px;
+    color: #64748B;
+}
+
+/* QUEUE TABLE */
+.queueCard {
+    background: #1E2536;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.queueTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.queueTable th {
+    padding: 14px 20px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.queueTable td {
+    padding: 16px 20px;
+    font-size: 14px;
+    color: #CBD5E1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.queueTable tr:last-child td {
+    border-bottom: none;
+}
+
+.queueTable tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.tokenCell {
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    color: #F8FAFC !important;
+}
+
+/* ACTION BUTTONS */
+.btnServe {
+    background: #EAB308;
+    color: #1E293B;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btnServe:hover {
+    background: #FACC15;
+}
+
+.btnNext {
+    background: #1E2A3B;
+    color: #E2E8F0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btnNext:hover {
+    background: #334155;
+}
+
+.btnHighValue {
+    background: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* QUICK ACTIONS */
+.quickActions {
+    display: flex;
+    gap: 12px;
+}
+
+.btnQuickDeposit,
+.btnQuickWithdraw,
+.btnQuickAccount {
+    padding: 11px 22px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s;
+}
+
+.btnQuickDeposit {
+    background: #EAB308;
+    color: #1E293B;
+}
+
+.btnQuickDeposit:hover {
+    background: #FACC15;
+}
+
+.btnQuickWithdraw {
+    background: #1E2536;
+    color: #E2E8F0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btnQuickWithdraw:hover {
+    background: #334155;
+}
+
+.btnQuickAccount {
+    background: #1E2536;
+    color: #E2E8F0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btnQuickAccount:hover {
+    background: #334155;
+}

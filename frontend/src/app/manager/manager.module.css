@@ -1,0 +1,204 @@
+.layout {
+    display: flex;
+    min-height: 100vh;
+    background: var(--navy);
+}
+
+/* SIDEBAR */
+.sidebar {
+    width: 280px;
+    background: rgba(13, 27, 42, 0.95);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    padding: 32px 24px;
+    z-index: 10;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+}
+
+.brandBox {
+    margin-bottom: 40px;
+}
+
+.bankName {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--cream);
+    line-height: 1;
+}
+
+.bankName span {
+    color: var(--gold2);
+}
+
+.branchName {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 8px;
+}
+
+.managerProfile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    margin-bottom: 32px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #7B3F00, #4A2600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+}
+
+.name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--cream);
+}
+
+.role {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: #E8B84B;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+}
+
+
+.navSection {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-left: 12px;
+}
+
+.navList {
+    list-style: none;
+    flex: 1;
+}
+
+.navList li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.navList li a:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--cream2);
+}
+
+.navList li.activeNav a {
+    background: linear-gradient(90deg, rgba(201, 150, 42, 0.1) 0%, transparent 100%);
+    color: var(--gold2);
+    border-left-color: var(--gold2);
+}
+
+.logoutBtn {
+    margin-top: auto;
+    background: rgba(255, 60, 60, 0.05);
+    color: #FF8080;
+    border: 1px solid rgba(255, 60, 60, 0.15);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.logoutBtn:hover {
+    background: rgba(255, 60, 60, 0.1);
+}
+
+/* MAIN CONTENT */
+.mainContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar {
+    height: 80px;
+    padding: 0 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.breadcrumb {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.crumbActive {
+    color: var(--cream);
+}
+
+.topActions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.dateStamp {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+}
+
+.actionBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.actionBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.contentWrap {
+    padding: 40px 48px;
+    flex: 1;
+    overflow-y: auto;
+}

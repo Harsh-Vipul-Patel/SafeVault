@@ -1,0 +1,218 @@
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+}
+
+.pageTitle {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--cream);
+    margin: 0 0 8px 0;
+}
+
+.pageSubtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Kpi Cards */
+.kpiGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.kpiCard {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 2px solid var(--gold2);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpiLabel {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.kpiValue {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--cream);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Standard Section & Tables */
+.section {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+
+.sectionTitle {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cream);
+    margin: 0 0 20px 0;
+    font-family: 'Playfair Display', serif;
+}
+
+.tableContainer {
+    overflow-x: auto;
+}
+
+.dataTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dataTable th {
+    text-align: left;
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    text-transform: uppercase;
+}
+
+.dataTable td {
+    padding: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--cream2);
+    font-size: 14px;
+}
+
+.dataTable tbody tr {
+    transition: background 0.2s;
+}
+
+.dataTable tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.statusBadge {
+    display: inline-flex;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.status_ACTIVE,
+.status_APPROVED,
+.status_PAID,
+.status_DISBURSED {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.status_PENDING,
+.status_RECEIVED,
+.status_UNDER_REVIEW {
+    background: rgba(255, 152, 0, 0.1);
+    color: #FF9800;
+    border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.status_CLOSED {
+    background: rgba(158, 158, 158, 0.1);
+    color: #9E9E9E;
+    border: 1px solid rgba(158, 158, 158, 0.2);
+}
+
+.status_OVERDUE,
+.status_REJECTED {
+    background: rgba(244, 67, 54, 0.1);
+    color: #F44336;
+    border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+/* Forms */
+.formGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.inputGroup.fullWidth {
+    grid-column: 1 / -1;
+}
+
+.inputGroup label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.inputGroup input,
+.inputGroup select,
+.inputGroup textarea {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--cream);
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.inputGroup input:focus,
+.inputGroup select:focus,
+.inputGroup textarea:focus {
+    border-color: var(--gold2);
+    box-shadow: 0 0 0 3px rgba(201, 150, 42, 0.1);
+}
+
+.submitBtn {
+    background: linear-gradient(135deg, var(--gold1), var(--gold2));
+    color: var(--navy);
+    border: none;
+    border-radius: 8px;
+    padding: 16px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: inherit;
+    box-shadow: 0 4px 12px rgba(201, 150, 42, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.submitBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(201, 150, 42, 0.3);
+}
+
+.submitBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
