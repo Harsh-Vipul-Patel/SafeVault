@@ -1,7 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from '../../teller/teller.module.css';
+import { Search, ShieldCheck, User, Calendar, FileText, CheckCircle, XCircle, Loader2, ArrowLeft } from 'lucide-react';
+
+import { motion, AnimatePresence } from 'framer-motion';
 
 const API = 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
@@ -12,12 +15,13 @@ export default function TellerKYCVerify() {
     const [docNumber, setDocNumber] = useState('');
     const [expiryDate, setExpiryDate] = useState('');
     const [loading, setLoading] = useState(false);
+    const [lookupLoading, setLookupLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [customerInfo, setCustomerInfo] = useState(null);
 
     const handleLookup = async () => {
         if (!customerId) return;
-        setLoading(true);
+        setLookupLoading(true);
         setMessage(null);
         try {
             const token = getToken();
@@ -34,7 +38,7 @@ export default function TellerKYCVerify() {
         } catch (err) {
             setMessage({ type: 'error', text: 'Lookup failed.' });
         } finally {
-            setLoading(false);
+            setLookupLoading(false);
         }
     };
 
@@ -61,6 +65,8 @@ export default function TellerKYCVerify() {
             const data = await res.json();
             if (res.ok) {
                 setMessage({ type: 'success', text: data.message });
+                // Refresh customer info to show updated status
+                handleLookup();
                 // Reset form
                 setDocNumber('');
                 setExpiryDate('');
@@ -75,116 +81,390 @@ export default function TellerKYCVerify() {
     };
 
     return (
-        <div className={styles.dashboardContainer}>
-            <header className={styles.sectionHeader}>
-                <h1 className={styles.title}>KYC Verification Terminal</h1>
-                <p className={styles.subtitle}>Verify and update customer identity documents</p>
-            </header>
-
-            <div className={styles.formGrid} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                {/* LOOKUP SECTION */}
-                <section className={styles.card}>
-                    <h2 className={styles.cardTitle}>1. Customer Identification</h2>
-                    <div className={styles.inputGroup}>
-                        <label className={styles.label}>Account ID or Name</label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                                type="text"
-                                className={styles.input}
-                                value={customerId}
-                                onChange={(e) => setCustomerId(e.target.value)}
-                                placeholder="e.g. ACC-MUM-003-..."
-                            />
-                            <button
-                                className={styles.btnPrimary}
-                                onClick={handleLookup}
-                                disabled={loading}
-                            >
-                                {loading ? '...' : 'Lookup'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {customerInfo && (
-                        <div className={styles.resultBox} style={{ marginTop: '16px', padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)' }}>
-                            <h3 style={{ color: '#34D399', marginBottom: '8px' }}>Customer Found</h3>
-                            <p><strong>Name:</strong> {customerInfo.FULL_NAME}</p>
-                            <p><strong>Cust ID:</strong> {customerInfo.CUSTOMER_ID}</p>
-                            <p><strong>Current KYC:</strong>
-                                <span style={{
-                                    marginLeft: '8px',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '12px',
-                                    background: customerInfo.KYC_STATUS === 'VERIFIED' ? '#065F46' : '#991B1B'
-                                }}>
-                                    {customerInfo.KYC_STATUS}
-                                </span>
-                            </p>
-                        </div>
-                    )}
-                </section>
-
-                {/* VERIFICATION FORM */}
-                <section className={styles.card}>
-                    <h2 className={styles.cardTitle}>2. Document Details</h2>
-                    <form onSubmit={handleVerify}>
-                        <div className={styles.inputGroup}>
-                            <label className={styles.label}>Document Type</label>
-                            <select
-                                className={styles.input}
-                                value={docType}
-                                onChange={(e) => setDocType(e.target.value)}
-                                required
-                            >
-                                <option value="AADHAAR">Aadhaar Card</option>
-                                <option value="PAN">PAN Card</option>
-                                <option value="PASSPORT">Passport</option>
-                                <option value="VOTER_ID">Voter ID</option>
-                                <option value="DRIVING_LICENSE">Driving License</option>
-                            </select>
-                        </div>
-
-                        <div className={styles.inputGroup}>
-                            <label className={styles.label}>Document Number</label>
-                            <input
-                                type="text"
-                                className={styles.input}
-                                value={docNumber}
-                                onChange={(e) => setDocNumber(e.target.value)}
-                                placeholder="Enter ID number"
-                                required
-                            />
-                        </div>
-
-                        <div className={styles.inputGroup}>
-                            <label className={styles.label}>Expiry Date</label>
-                            <input
-                                type="date"
-                                className={styles.input}
-                                value={expiryDate}
-                                onChange={(e) => setExpiryDate(e.target.value)}
-                                required
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            className={styles.btnPrimary}
-                            style={{ width: '100%', marginTop: '16px' }}
-                            disabled={loading || !customerInfo}
+        <div className={styles.dashboardContainer} style={{ background: 'transparent', padding: '0', minHeight: 'auto' }}>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                style={{ maxWidth: '1100px', margin: '0 auto' }}
+            >
+                <header style={{ marginBottom: '48px', textAlign: 'left' }}>
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}
+                    >
+                        <motion.div
+                            whileHover={{ rotate: 15, scale: 1.1 }}
+                            style={{
+                                background: 'var(--grad-gold)',
+                                padding: '10px',
+                                borderRadius: '12px',
+                                boxShadow: '0 0 20px rgba(201, 150, 42, 0.3)'
+                            }}
                         >
-                            {loading ? 'Processing...' : 'Verify & Update KYC'}
-                        </button>
-                    </form>
-                </section>
-            </div>
+                            <ShieldCheck size={32} color="#0D1B2A" />
+                        </motion.div>
+                        <h1 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '42px',
+                            fontWeight: '900',
+                            margin: 0,
+                            letterSpacing: '-0.02em'
+                        }} className="text-gradient-gold">
+                            KYC Verification Terminal
+                        </h1>
+                    </motion.div>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.7 }}
+                        transition={{ delay: 0.4 }}
+                        style={{
+                            fontSize: '18px',
+                            color: 'var(--cream)',
+                            maxWidth: '600px',
+                            lineHeight: '1.6',
+                            fontWeight: '500'
+                        }}
+                    >
+                        High-security identity protocol for entity verification and document lifecycle management.
+                    </motion.p>
+                </header>
 
-            {message && (
-                <div className={message.type === 'success' ? styles.successBanner : styles.errorBanner} style={{ marginTop: '24px' }}>
-                    {message.text}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '40px', alignItems: 'start' }}>
+                    {/* STEP 1: ENTITY LOOKUP */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="pearl-card"
+                        style={{ padding: '32px', height: '100%' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '8px',
+                                borderRadius: '10px',
+                                border: '1px solid var(--glass-border)'
+                            }}>
+                                <Search size={20} style={{ color: 'var(--gold2)' }} />
+                            </div>
+                            <h2 style={{ fontSize: '20px', fontWeight: '700', margin: 0, color: 'var(--white)' }}>Entity Lookup</h2>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <label style={{
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                color: 'var(--gold2)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.1em'
+                            }}>
+                                Customer Identification
+                            </label>
+                            <div style={{ position: 'relative', display: 'flex', gap: '12px' }}>
+                                <input
+                                    type="text"
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(255, 255, 255, 0.03)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '12px',
+                                        padding: '14px 16px',
+                                        color: 'var(--white)',
+                                        fontSize: '14px',
+                                        transition: 'all-ease 0.3s'
+                                    }}
+                                    className="focus:ring-2 focus:ring-amber-500/50 outline-none"
+                                    value={customerId}
+                                    onChange={(e) => setCustomerId(e.target.value)}
+                                    placeholder="e.g. CUST-001 or Name"
+                                    onKeyPress={(e) => e.key === 'Enter' && handleLookup()}
+                                />
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={handleLookup}
+                                    disabled={lookupLoading}
+                                    style={{
+                                        background: 'var(--grad-gold)',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        padding: '0 24px',
+                                        color: 'var(--navy)',
+                                        fontWeight: '800',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s',
+                                        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    {lookupLoading ? <Loader2 size={18} className="animate-spin" /> : 'Lookup'}
+                                </motion.button>
+                            </div>
+                        </div>
+
+                        <AnimatePresence>
+                            {customerInfo && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    style={{
+                                        marginTop: '40px',
+                                        padding: '24px',
+                                        borderRadius: '16px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--glass-border)',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        right: 0,
+                                        width: '100px',
+                                        height: '100px',
+                                        background: 'var(--grad-gold)',
+                                        opacity: 0.05,
+                                        borderRadius: '50%',
+                                        transform: 'translate(40%, -40%)'
+                                    }}></div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', position: 'relative' }}>
+                                        <motion.div
+                                            initial={{ scale: 0.8 }}
+                                            animate={{ scale: 1 }}
+                                            style={{
+                                                width: '64px',
+                                                height: '64px',
+                                                borderRadius: '16px',
+                                                background: 'var(--grad-gold)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.3)'
+                                            }}
+                                        >
+                                            <User size={32} color="var(--navy)" />
+                                        </motion.div>
+                                        <div>
+                                            <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--white)' }}>{customerInfo.FULL_NAME}</h3>
+                                            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'var(--muted)', fontWeight: '600' }}>{customerInfo.CUSTOMER_ID}</p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        marginTop: '24px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        paddingTop: '20px',
+                                        borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase' }}>Current Status</span>
+                                        <div style={{
+                                            padding: '6px 16px',
+                                            borderRadius: '30px',
+                                            fontSize: '12px',
+                                            fontWeight: '800',
+                                            background: customerInfo.KYC_STATUS === 'VERIFIED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                            color: customerInfo.KYC_STATUS === 'VERIFIED' ? '#34D399' : '#F87171',
+                                            border: `1px solid ${customerInfo.KYC_STATUS === 'VERIFIED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            {customerInfo.KYC_STATUS === 'VERIFIED' ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                                            {customerInfo.KYC_STATUS}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+
+                    {/* STEP 2: VERIFICATION FORM */}
+                    <motion.section
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{
+                            opacity: customerInfo ? 1 : 0.4,
+                            x: 0,
+                            filter: customerInfo ? 'none' : 'grayscale(0.5)'
+                        }}
+                        transition={{ delay: 0.5 }}
+                        className="pearl-card"
+                        style={{
+                            padding: '40px',
+                            pointerEvents: customerInfo ? 'all' : 'none',
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '32px' }}>
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '10px',
+                                borderRadius: '12px',
+                                border: '1px solid var(--glass-border)'
+                            }}>
+                                <FileText size={22} style={{ color: 'var(--gold2)' }} />
+                            </div>
+                            <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--white)' }}>Identity Confirmation</h2>
+                        </div>
+
+                        <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Document Type</label>
+                                    <select
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid var(--glass-border)',
+                                            borderRadius: '12px',
+                                            padding: '14px 40px 14px 16px',
+                                            color: 'var(--white)',
+                                            fontSize: '14px',
+                                            outline: 'none',
+                                            appearance: 'none',
+                                            cursor: 'pointer',
+                                            width: '100%',
+                                            backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C9962A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundPosition: 'right 14px center',
+                                            backgroundSize: '16px'
+                                        }}
+                                        className="focus:ring-2 focus:ring-amber-500/30 transition-all"
+                                        value={docType}
+                                        onChange={(e) => setDocType(e.target.value)}
+                                        required
+                                    >
+                                        <option value="AADHAAR" style={{ background: '#0D1B2A', color: 'white' }}>Aadhaar Card (12 digits)</option>
+                                        <option value="PAN" style={{ background: '#0D1B2A', color: 'white' }}>PAN Card (10 digits)</option>
+                                        <option value="PASSPORT" style={{ background: '#0D1B2A', color: 'white' }}>Passport (8 digits)</option>
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expiry Date</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type="date"
+                                            style={{
+                                                width: '100%',
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: '1px solid var(--glass-border)',
+                                                borderRadius: '12px',
+                                                padding: '14px',
+                                                color: 'var(--white)',
+                                                fontSize: '14px',
+                                                outline: 'none'
+                                            }}
+                                            value={expiryDate}
+                                            onChange={(e) => setExpiryDate(e.target.value)}
+                                            required
+                                        />
+                                        <Calendar size={18} style={{ color: 'var(--muted)', position: 'absolute', right: '14px', top: '14px', pointerEvents: 'none' }} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Document Identification Number</label>
+                                <input
+                                    type="text"
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.06)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '12px',
+                                        padding: '16px',
+                                        color: 'var(--white)',
+                                        fontSize: '15px',
+                                        outline: 'none'
+                                    }}
+                                    value={docNumber}
+                                    onChange={(e) => setDocNumber(e.target.value)}
+                                    placeholder="Enter secure ID number"
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ marginTop: '16px' }}>
+                                <motion.button
+                                    type="submit"
+                                    whileHover={customerInfo ? { scale: 1.02, y: -2 } : {}}
+                                    whileTap={customerInfo ? { scale: 0.98 } : {}}
+                                    disabled={loading || !customerInfo}
+                                    style={{
+                                        width: '100%',
+                                        height: '60px',
+                                        background: 'var(--grad-gold)',
+                                        border: 'none',
+                                        borderRadius: '14px',
+                                        color: 'var(--navy)',
+                                        fontSize: '16px',
+                                        fontWeight: '900',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '12px',
+                                        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.02em',
+                                        opacity: customerInfo ? 1 : 0.5
+                                    }}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 size={24} className="animate-spin" />
+                                            Encrypting & Finalizing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ShieldCheck size={24} />
+                                            Verify & Update Identity Status
+                                        </>
+                                    )}
+                                </motion.button>
+                                <p style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', marginTop: '16px', fontWeight: '500' }}>
+                                    This action will be logged and audited for compliance purposes.
+                                </p>
+                            </div>
+                        </form>
+                    </motion.section>
                 </div>
-            )}
+
+                <AnimatePresence>
+                    {message && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            style={{
+                                marginTop: '40px',
+                                padding: '20px 24px',
+                                borderRadius: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '16px',
+                                background: message.type === 'success' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                                border: `1px solid ${message.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                color: message.type === 'success' ? '#34D399' : '#F87171',
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                backdropFilter: 'blur(10px)'
+                            }}
+                        >
+                            {message.type === 'success' ? <CheckCircle size={24} /> : <XCircle size={24} />}
+                            {message.text}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </motion.div>
         </div>
     );
 }

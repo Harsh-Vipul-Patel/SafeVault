@@ -17,7 +17,7 @@ export default function BatchJobStatus() {
     const fetchBatchJobs = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/batch-jobs`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });

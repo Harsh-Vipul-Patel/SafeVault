@@ -125,7 +125,7 @@ export default function InternalTransfer() {
     return (
         <div className={styles.pageWrap}>
             <h1 className={styles.pageTitle}>Internal Fund Transfer</h1>
-            <p className={styles.pageSubtitle}>Transfer between Suraksha Bank accounts · Calls Oracle <code>sp_internal_transfer</code></p>
+            <p className={styles.pageSubtitle}>Transfer between Safe Vault accounts · Calls Oracle <code>sp_internal_transfer</code></p>
 
             <div className={styles.formPanel}>
                 <div className={styles.formGroup}>

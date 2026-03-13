@@ -26,7 +26,7 @@ router.get('/monitor', async (req, res) => {
             );
             activeSessions = res.rows[0].COUNT || 0;
         } catch (e) {
-            console.warn('Dashboard Monitor: v$session access denied.');
+            // console.debug('v$session access denied - expected for non-DBA.');
         }
 
         // 2. Batch Jobs
@@ -125,16 +125,103 @@ router.get('/branches', async (req, res) => {
     try {
         connection = await oracledb.getConnection();
         const result = await connection.execute(
-            `SELECT b.branch_id, b.branch_name, b.branch_code, b.address, b.city, b.state, b.is_active,
+            `SELECT b.branch_id, b.branch_name, b.ifsc_code AS branch_code, b.address, b.city, b.state, b.is_active,
                     e.full_name AS manager_name
              FROM BRANCHES b
-             LEFT JOIN EMPLOYEES e ON b.manager_id = e.employee_id
+             LEFT JOIN EMPLOYEES e ON b.manager_emp_id = e.employee_id
              ORDER BY b.branch_id`,
             {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
         res.json({ branches: result.rows });
     } catch (err) {
         res.status(500).json({ message: err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/admin/branches
+// Create a new branch
+router.post('/branches', async (req, res) => {
+    const { branchId, branchName, ifscCode, address, city, state } = req.body;
+
+    if (!branchId || !branchName || !ifscCode) {
+        return res.status(400).json({ message: 'Branch ID, Name, and IFSC are required.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        await connection.execute(
+            `INSERT INTO BRANCHES (branch_id, branch_name, ifsc_code, address, city, state, is_active)
+             VALUES (:id, :name, :ifsc, :addr, :city, :state, '1')`,
+            {
+                id: branchId,
+                name: branchName,
+                ifsc: ifscCode,
+                addr: address || '',
+                city: city || '',
+                state: state || ''
+            },
+            { autoCommit: true }
+        );
+        res.json({ message: 'Branch created successfully.', branchId });
+    } catch (err) {
+        console.error('Create Branch Error:', err);
+        res.status(500).json({ message: 'Failed to create branch: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/admin/users
+// Create new user and linked employee record
+router.post('/users', async (req, res) => {
+    const { username, password, fullName, role, branchId, employeeId } = req.body;
+    const bcrypt = require('bcryptjs');
+
+    if (!username || !password || !fullName || !role || !branchId || !employeeId) {
+        return res.status(400).json({ message: 'All fields are required.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // 1. Create User
+        const userResult = await connection.execute(
+            `INSERT INTO USERS (username, password_hash, user_type)
+             VALUES (:uname, :phash, 'EMPLOYEE')
+             RETURNING user_id INTO :uid`,
+            {
+                uname: username,
+                phash: hashedPassword,
+                uid: { type: oracledb.BUFFER, dir: oracledb.BIND_OUT }
+            }
+        );
+
+        const userId = userResult.outBinds.uid[0];
+
+        // 2. Create Employee
+        await connection.execute(
+            `INSERT INTO EMPLOYEES (employee_id, branch_id, full_name, role, hire_date, is_active, user_id)
+             VALUES (:eid, :bid, :fname, :role, SYSDATE, '1', :uid)`,
+            {
+                eid: employeeId,
+                bid: branchId,
+                fname: fullName,
+                role: role,
+                uid: userId
+            }
+        );
+
+        await connection.commit();
+        res.json({ message: 'Staff member onboarded successfully.', username, employeeId });
+    } catch (err) {
+        if (connection) await connection.rollback();
+        console.error('Onboard Staff Error:', err);
+        res.status(500).json({ message: 'Failed to onboard staff: ' + err.message });
     } finally {
         if (connection) await connection.close();
     }
@@ -240,8 +327,8 @@ router.get('/scheduler', async (req, res) => {
         let logRows = [];
         try {
             const logs = await connection.execute(
-                `SELECT log_id, account_id, previous_balance, new_balance, interest_amount, run_date
-                 FROM INTEREST_ACCRUAL_LOG ORDER BY run_date DESC FETCH FIRST 20 ROWS ONLY`,
+                `SELECT accrual_id AS log_id, account_id, principal_amount, interest_amount, accrual_date AS run_date
+                 FROM INTEREST_ACCRUAL_LOG ORDER BY accrual_date DESC FETCH FIRST 20 ROWS ONLY`,
                 {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }
             );
             logRows = logs.rows;

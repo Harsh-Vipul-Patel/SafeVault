@@ -4,6 +4,13 @@ const oracledb = require('oracledb');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { processPendingNotifications } = require('../lib/dispatchEmail');
 const { mapOracleError } = require('../utils/error_codes');
+const { sendEmail } = require('../utils/emailService');
+const { generateTransactionReceiptPDF } = require('../utils/pdfGenerator');
+const templates = require('../utils/emailTemplates');
+
+// Set global fetch options to handle LOBs as strings/buffers
+oracledb.fetchAsString = [oracledb.CLOB];
+oracledb.fetchAsBuffer = [oracledb.BLOB];
 
 const MANAGER_ROLES = ['BRANCH_MANAGER', 'SYSTEM_ADMIN'];
 
@@ -96,7 +103,7 @@ router.get('/dashboard', verifyToken, requireRole(MANAGER_ROLES), async (req, re
 
         // Dual Approval Queue preview (top 3)
         const approvalPreview = await connection.execute(
-            `SELECT q.queue_id, q.operation_type, q.status, q.created_at, q.payload_json,
+            `SELECT RAWTOHEX(q.queue_id) AS queue_id, q.operation_type, q.status, q.created_at, q.payload_json,
                     u.username AS requested_by_name
              FROM DUAL_APPROVAL_QUEUE q
              LEFT JOIN USERS u ON q.requested_by = u.user_id
@@ -145,7 +152,7 @@ router.get('/approvals', verifyToken, requireRole(MANAGER_ROLES), async (req, re
         const filterStatus = status || 'PENDING';
 
         const result = await connection.execute(
-            `SELECT q.queue_id, q.operation_type, q.payload_json, q.status,
+            `SELECT RAWTOHEX(q.queue_id) AS queue_id, q.operation_type, q.payload_json, q.status,
                     q.created_at, q.reviewed_by, q.reviewed_at, q.review_note,
                     u.username AS requested_by_name
              FROM DUAL_APPROVAL_QUEUE q
@@ -234,7 +241,129 @@ router.post('/approvals/:id/:action', verifyToken, requireRole(MANAGER_ROLES), a
             { autoCommit: true }
         );
 
+        if (newStatus === 'APPROVED') {
+            // Fetch queue item to check operation type and payload
+            const queueItem = await connection.execute(
+                `SELECT operation_type, payload_json, RAWTOHEX(requested_by) AS requested_by_hex FROM DUAL_APPROVAL_QUEUE WHERE queue_id = :qid`,
+                { qid: id },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+
+            const item = queueItem.rows[0];
+            if (item && item.OPERATION_TYPE === 'HIGH_VALUE_TRANSFER') {
+                let payload = {};
+                try { payload = JSON.parse(item.PAYLOAD_JSON || '{}'); } catch (e) { console.error('Payload Parse Error:', e); }
+
+                if (payload.operation === 'INTERNAL_TRANSFER') {
+                    // Execute the actual transfer now that it's approved
+                    await connection.execute(
+                        `BEGIN sp_internal_transfer(:sender, :receiver, :amount, :initiated_by); END;`,
+                        {
+                            sender: payload.fromAccountId,
+                            receiver: payload.toAccountId,
+                            amount: payload.amount,
+                            initiated_by: item.REQUESTED_BY_HEX // Pass the original requester ID as hex string
+                        },
+                        { autoCommit: true }
+                    );
+
+                    // --- Process Receipts after approval ---
+                    try {
+                        const transferRef = 'TXN-' + Date.now().toString().slice(-8);
+
+                        // Fetch sender (the one who requested the transfer)
+                        const senderResult = await connection.execute(
+                            `SELECT email, full_name FROM CUSTOMERS WHERE user_id = HEXTORAW(:req_uid)`,
+                            { req_uid: item.REQUESTED_BY_HEX },
+                            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+                        );
+
+                        // Fetch receiver
+                        const receiverResult = await connection.execute(
+                            `SELECT c.email, c.full_name, a.balance, a.account_number 
+                             FROM ACCOUNTS a 
+                             JOIN CUSTOMERS c ON a.customer_id = c.customer_id 
+                             WHERE a.account_id = :acc OR a.account_number = :acc`,
+                            { acc: payload.toAccountId },
+                            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+                        );
+
+                        const senderBalRes = await connection.execute(
+                            `SELECT balance FROM ACCOUNTS WHERE account_id = :acc`,
+                            { acc: payload.fromAccountId },
+                            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+                        );
+
+                        const sender = senderResult.rows[0];
+                        const receiver = receiverResult.rows[0];
+                        const senderBalance = senderBalRes.rows[0]?.BALANCE;
+
+                        if (sender) {
+                            // Sender PDF (Debit)
+                            const senderPdfBuffer = await generateTransactionReceiptPDF({
+                                ref: transferRef,
+                                date: new Date(),
+                                sender: sender.FULL_NAME,
+                                receiver: receiver ? receiver.FULL_NAME : payload.toAccountId,
+                                status: 'APPROVED HIGH-VALUE TRANSFER — DEBIT',
+                                type: 'Internal Transfer Out',
+                                source: 'internal',
+                                procedure: 'sp_internal_transfer()',
+                                isolation: 'SERIALIZABLE + FOR UPDATE',
+                                auth: 'DUAL APPROVAL SECURED (Manager Approved)',
+                                amount: payload.amount,
+                                balance: senderBalance,
+                                isReceiver: false,
+                                scopeNote: '✓ IN SCOPE — Post-Approval Execution · type = TRANSFER_DEBIT'
+                            });
+
+                            if (sender.EMAIL) {
+                                const attachments = [{ filename: `Receipt-${transferRef}.pdf`, content: senderPdfBuffer, contentType: 'application/pdf' }];
+                                const senderHtml = templates.transaction(sender.FULL_NAME, {
+                                    amount: payload.amount,
+                                    ref: transferRef,
+                                    type: 'Internal Transfer Out (Approved)'
+                                });
+                                await sendEmail(sender.EMAIL, 'Transaction Approved & Successful - Safe Vault', senderHtml, attachments, true).catch(e => console.error('Manager Approval Sender Email Error:', e));
+                            }
+                        }
+
+                        if (receiver && receiver.EMAIL) {
+                            // Receiver PDF (Credit)
+                            const receiverPdfBuffer = await generateTransactionReceiptPDF({
+                                ref: transferRef,
+                                date: new Date(),
+                                sender: sender ? sender.FULL_NAME : payload.fromAccountId,
+                                receiver: receiver.FULL_NAME,
+                                status: 'APPROVED HIGH-VALUE TRANSFER — CREDIT',
+                                type: 'Internal Transfer In',
+                                source: 'internal',
+                                procedure: 'sp_internal_transfer()',
+                                auth: 'SECURE LEDGER CREDIT (Automated)',
+                                amount: payload.amount,
+                                balance: receiver.BALANCE,
+                                isReceiver: true,
+                                scopeNote: '✓ IN SCOPE — Mirror credit leg · type = TRANSFER_CREDIT'
+                            });
+
+                            const attachments = [{ filename: `Credit-Note-${transferRef}.pdf`, content: receiverPdfBuffer, contentType: 'application/pdf' }];
+                            const receiverHtml = templates.transaction(receiver.FULL_NAME, {
+                                amount: payload.amount,
+                                ref: transferRef,
+                                type: 'Internal Transfer In'
+                            });
+                            await sendEmail(receiver.EMAIL, 'Funds Received (High Value) - Suraksha Bank', receiverHtml, attachments, true).catch(e => console.error('Manager Approval Receiver Email Error:', e));
+                        }
+                    } catch (receiptErr) {
+                        console.error('Approval Receipt Error:', receiptErr);
+                    }
+                }
+            }
+        }
+
+
         res.json({ message: `Request ${newStatus} successfully.`, queueId: id, status: newStatus });
+
     } catch (err) {
         console.error('Approval Action Error:', err);
         res.status(500).json({ message: 'Action failed: ' + err.message });
@@ -313,19 +442,6 @@ router.post('/accounts/:id/status', verifyToken, requireRole(MANAGER_ROLES), asy
         );
 
         // Audit log
-        await connection.execute(
-            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, old_value_json, new_value_json, change_reason)
-             VALUES ('ACCOUNTS', :recordId, 'STATUS_CHANGE', :changedBy, SYSTIMESTAMP, :oldVal, :newVal, :reason)`,
-            {
-                recordId: id,
-                changedBy: employeeId,
-                oldVal: JSON.stringify({ status: oldStatus }),
-                newVal: JSON.stringify({ status: newStatus }),
-                reason: reason || 'Manager status change'
-            },
-            { autoCommit: true }
-        );
-
         res.json({ message: `Account ${id} status changed to ${newStatus}.`, accountId: id, status: newStatus });
     } catch (err) {
         console.error('Account Status Error:', err);
@@ -454,7 +570,7 @@ router.get('/audit', verifyToken, requireRole(MANAGER_ROLES), async (req, res) =
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
 
-        res.json({ auditEntries: result.rows });
+        res.json({ audit: result.rows });
     } catch (err) {
         console.error('Audit Log Error:', err);
         res.status(500).json({ message: 'Failed to fetch audit log: ' + err.message });

@@ -9,8 +9,19 @@ export default function BranchManagement() {
     const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [msg, setMsg] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [formData, setFormData] = useState({
+        branchId: '',
+        branchName: '',
+        ifscCode: '',
+        city: '',
+        state: '',
+        address: ''
+    });
 
     const fetchBranches = async () => {
+        setLoading(true);
         try {
             const res = await fetch(`${API}/api/admin/branches`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
@@ -28,6 +39,39 @@ export default function BranchManagement() {
         fetchBranches();
     }, []);
 
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        setMsg(null);
+        try {
+            const res = await fetch(`${API}/api/admin/branches`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setMsg('✓ ' + data.message);
+                setShowModal(false);
+                setFormData({ branchId: '', branchName: '', ifscCode: '', city: '', state: '', address: '' });
+                fetchBranches();
+            } else {
+                setMsg('Error: ' + data.message);
+            }
+        } catch {
+            setMsg('Failed to create branch. Backend unreachable.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) return <div className={styles.loading}>Loading Branch Data from Oracle…</div>;
 
     return (
@@ -36,11 +80,79 @@ export default function BranchManagement() {
                 <div className={styles.greeting}>Branch Management</div>
                 <div className={styles.headerActions}>
                     <button className={styles.btnGhost} onClick={fetchBranches}>↻ REFRESH</button>
-                    <button className={styles.btnDanger}>+ NEW BRANCH</button>
+                    <button className={styles.btnDanger} onClick={() => setShowModal(true)}>+ NEW BRANCH</button>
                 </div>
             </header>
 
-            {msg && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px' }}>{msg}</div>}
+            {msg && <div style={{
+                background: msg.includes('Error') ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                border: msg.includes('Error') ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(16,185,129,0.2)',
+                color: msg.includes('Error') ? '#FCA5A5' : '#10B981',
+                padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px'
+            }}>{msg}</div>}
+
+            {showModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000, backdropFilter: 'blur(10px)'
+                }}>
+                    <div style={{
+                        background: '#0F172A', border: '1px solid rgba(255,255,255,0.1)', padding: '32px',
+                        borderRadius: '16px', width: '100%', maxWidth: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}>
+                        <h2 style={{ color: 'var(--grad-gold)', marginBottom: '4px', fontSize: '24px' }}>Configure New Branch</h2>
+                        <p style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '24px' }}>Register a new physical node in the corporate network</p>
+
+                        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div className={styles.inputGroup}>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' }}>BRANCH ID</label>
+                                    <input name="branchId" value={formData.branchId} onChange={handleChange} placeholder="BRN-MUM-003" required
+                                        style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                                </div>
+                                <div className={styles.inputGroup}>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' }}>IFSC CODE</label>
+                                    <input name="ifscCode" value={formData.ifscCode} onChange={handleChange} placeholder="SAFE0000003" required
+                                        style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                                </div>
+                            </div>
+
+                            <div className={styles.inputGroup}>
+                                <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' }}>BRANCH NAME</label>
+                                <input name="branchName" value={formData.branchName} onChange={handleChange} placeholder="Mumbai Central Node" required
+                                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div className={styles.inputGroup}>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' }}>CITY</label>
+                                    <input name="city" value={formData.city} onChange={handleChange} placeholder="Mumbai"
+                                        style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                                </div>
+                                <div className={styles.inputGroup}>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' }}>STATE</label>
+                                    <input name="state" value={formData.state} onChange={handleChange} placeholder="Maharashtra"
+                                        style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                                </div>
+                            </div>
+
+                            <div className={styles.inputGroup}>
+                                <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' }}>OFFICE ADDRESS</label>
+                                <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Street, landmark..." rows="2"
+                                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', resize: 'none' }} />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                <button type="submit" disabled={submitting} className={styles.btnDanger} style={{ flex: 1 }}>
+                                    {submitting ? 'COMMITTING TO ORACLE...' : 'AUTHORIZE BRANCH'}
+                                </button>
+                                <button type="button" onClick={() => setShowModal(false)} className={styles.btnGhost} style={{ flex: 1 }}>CANCEL</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             <div className={styles.dataGrid} style={{ gridTemplateColumns: '1fr' }}>
                 <div className={styles.panel}>

@@ -1,0 +1,570 @@
+.container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.titleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.greeting {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0;
+}
+
+.headerSub {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+}
+
+.btnPrimary {
+    background: var(--grad-gold);
+    color: #0D1B2A !important;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(201, 150, 42, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.btnPrimary:hover {
+    box-shadow: 0 6px 20px rgba(201, 150, 42, 0.5);
+    transform: translateY(-1px);
+}
+
+/* ERROR */
+.errorState {
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    color: #F87171;
+    padding: 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* BOOK GRID */
+.bookGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.bookCard {
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    perspective: 1000px;
+}
+
+.bookCover {
+    height: 140px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    position: relative;
+    padding: 20px;
+}
+
+.bookGlow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), transparent);
+}
+
+.bookBrand {
+    font-family: 'DM Mono', monospace;
+    font-weight: 800;
+    letter-spacing: 0.3em;
+    font-size: 10px;
+    opacity: 0.6;
+    margin-bottom: 8px;
+}
+
+.bookType {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.bookPattern {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--grad-gold);
+}
+
+.bookInfo {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bookMeta {
+    display: flex;
+    justify-content: space-between;
+}
+
+.metaItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.bookRange {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bookUsage {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.usageBar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.usageFill {
+    height: 100%;
+    background: var(--gold);
+}
+
+.bookUsage span {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    align-self: flex-end;
+}
+
+.statusTag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 4px 8px;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+.statusActive {
+    color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    background: var(--glass);
+    border: 1px dashed var(--glass-border);
+    border-radius: 20px;
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+}
+
+.emptyIcon {
+    margin-bottom: 24px;
+    color: var(--gold-faint);
+}
+
+/* DETAIL VIEW */
+.detailView {
+    padding: 32px;
+    border-radius: 16px;
+}
+
+.detailHeader {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 32px;
+}
+
+.backBtn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.3s;
+}
+
+.backBtn:hover {
+    color: var(--white);
+}
+
+.detailActions {
+    display: flex;
+    gap: 12px;
+}
+
+.btnGhost {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--muted);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stopBtn {
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    color: #F87171;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bookSummary {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 40px;
+}
+
+.summaryInfo h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    color: var(--white);
+    margin: 0 0 8px 0;
+}
+
+.summaryInfo p {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.summaryStats {
+    display: flex;
+    gap: 24px;
+}
+
+.statBox {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.statVal {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--white);
+}
+
+.statLbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+}
+
+/* TABLE */
+.leafTableContainer {
+    width: 100%;
+}
+
+.leafTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leafTable th {
+    text-align: left;
+    padding: 16px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.01);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.leafTable td {
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    font-size: 13px;
+}
+
+.chqNum {
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    color: var(--white);
+}
+
+.dateCell {
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+}
+
+.amount {
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    color: var(--gold2);
+}
+
+.statusTagSmall {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status_CLEARED {
+    color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.status_STOPPED {
+    color: #F44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.status_PRESENTED {
+    color: #2196F3;
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.emptyRow {
+    padding: 60px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* MODAL */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 480px;
+    overflow: hidden;
+    box-shadow: var(--shadow-deep);
+}
+
+.modalHeader {
+    padding: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modalTitleGroup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modalIcon {
+    color: var(--gold2);
+}
+
+.modalTitleGroup h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    margin: 0;
+    color: var(--white);
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.formBody {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.formGroup label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+}
+
+.formGroup input,
+.formGroup select {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: var(--white);
+    font-size: 14px;
+}
+
+.otpRow {
+    display: flex;
+    gap: 12px;
+}
+
+.otpRow input {
+    flex: 1;
+}
+
+.otpBtn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--white);
+    padding: 0 20px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.msgBanner {
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+}
+
+.msgBanner.success {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4CAF50;
+}
+
+.msgBanner.error {
+    background: rgba(244, 67, 54, 0.1);
+    color: #F87171;
+}
+
+.modalActions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.cancelBtn {
+    flex: 1;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    padding: 12px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.confirmBtn {
+    flex: 2;
+    background: var(--grad-gold);
+    color: var(--navy);
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}

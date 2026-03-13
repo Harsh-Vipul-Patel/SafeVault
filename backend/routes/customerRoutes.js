@@ -8,6 +8,7 @@ const { generateStatementPDF, generateTransactionReceiptPDF } = require('../util
 const { verifyOtp } = require('../utils/otpHelper');
 const { mapOracleError } = require('../utils/error_codes');
 const { processPendingNotifications } = require('../lib/dispatchEmail');
+const templates = require('../utils/emailTemplates');
 
 const getUserId = (req) => req.user?.id || 'WEB_USER';
 
@@ -31,12 +32,63 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
             if (!validation.valid) {
                 // Send Failure Email to Sender
                 if (validation.email) {
-                    const failBody = `Hello,\n\nYour recent transaction attempt failed.\nReason: ${validation.reason}\nTimestamp: ${new Date().toLocaleString()}`;
-                    await sendEmail(validation.email, 'Transaction Failed - Suraksha Bank', failBody).catch(e => console.error(e));
+                    const failHtml = templates.update(req.user.name || 'Customer', `A transaction attempt of ₹${amount} failed. Reason: ${validation.reason}`);
+                    await sendEmail(validation.email, 'Security Alert: Transaction Failed', failHtml, [], true).catch(e => console.error(e));
                 }
                 return res.status(400).json({ message: validation.reason, attemptsLeft: validation.attemptsLeft });
             }
         }
+        // 1. Fetch High Value Threshold & Check for Same-Customer Exemption
+        const configRes = await connection.execute(
+            `SELECT config_value FROM SYSTEM_CONFIG WHERE config_key = 'HIGH_VALUE_THRESHOLD'`,
+            [], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const threshold = Number(configRes.rows[0]?.CONFIG_VALUE || 200000);
+
+        // Fetch Customer IDs for both accounts to check for exemption
+        const accountsRes = await connection.execute(
+            `SELECT account_id, customer_id FROM ACCOUNTS WHERE account_id IN (:sender, :receiver) OR account_number IN (:sender, :receiver)`,
+            { sender: fromAccountId, receiver: toAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        const senderAcc = accountsRes.rows.find(r => r.ACCOUNT_ID === fromAccountId || r.ACCOUNT_NUMBER === fromAccountId);
+        const receiverAcc = accountsRes.rows.find(r => r.ACCOUNT_ID === toAccountId || r.ACCOUNT_NUMBER === toAccountId);
+
+        if (!senderAcc) return res.status(404).json({ message: 'Sender account not found.' });
+        if (!receiverAcc) return res.status(404).json({ message: 'Receiver account not found.' });
+
+        const isHighValue = Number(amount) > threshold;
+
+        // 2. Dual Approval Logic: Queue ALL transfers above threshold
+        if (isHighValue) {
+
+            const payload = JSON.stringify({
+                fromAccountId,
+                toAccountId,
+                amount: Number(amount),
+                senderName: req.user?.name || 'Customer',
+                operation: 'INTERNAL_TRANSFER'
+            });
+
+            await connection.execute(
+                `BEGIN sp_submit_dual_approval(:op, :payload, :req_by); END;`,
+                {
+                    op: 'HIGH_VALUE_TRANSFER',
+                    payload: payload,
+                    req_by: req.user.username // Corrected: pass username to handle RAW user_id lookup in SP
+                },
+                { autoCommit: true }
+            );
+
+            return res.json({
+                message: `Transfer of ₹${amount} exceeds threshold and has been queued for manager approval.`,
+                status: 'PENDING_APPROVAL',
+                isHighValue: true
+            });
+        }
+
+        // 3. Regular Transfer (Below threshold or Same Customer)
         await connection.execute(
             `BEGIN sp_internal_transfer(:sender, :receiver, :amount, :initiated_by); END;`,
             {
@@ -47,6 +99,7 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
             },
             { autoCommit: true }
         );
+
 
         // --- Process Notifications ---
         if (req.user?.id) {
@@ -78,7 +131,6 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
                 const sender = senderResult.rows[0];
                 const receiver = receiverResult.rows[0];
                 const senderBalance = senderBalRes.rows[0]?.BALANCE;
-                const timeStr = new Date().toLocaleString();
 
                 // Sender PDF (Debit)
                 const senderPdfBuffer = await generateTransactionReceiptPDF({
@@ -86,13 +138,15 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
                     date: new Date(),
                     sender: sender ? sender.FULL_NAME : fromAccountId,
                     receiver: receiver ? receiver.FULL_NAME : toAccountId,
+                    status: 'INTERNAL TRANSFER — DEBIT',
                     type: 'Internal Transfer Out',
                     source: 'internal',
                     procedure: 'sp_internal_transfer()',
+                    isolation: 'SERIALIZABLE + FOR UPDATE',
+                    auth: 'OTP VERIFIED (Authenticated session)',
                     amount: amount,
                     balance: senderBalance,
                     isReceiver: false,
-                    isolation: 'SERIALIZABLE + FOR UPDATE',
                     scopeNote: '✓ IN SCOPE — Handled by sp_internal_transfer() · TRANSACTIONS table · type = TRANSFER_DEBIT'
                 });
 
@@ -104,9 +158,11 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
                         date: new Date(),
                         sender: sender ? sender.FULL_NAME : fromAccountId,
                         receiver: receiver.FULL_NAME,
+                        status: 'INTERNAL TRANSFER — CREDIT',
                         type: 'Internal Transfer In',
                         source: 'internal',
                         procedure: 'sp_internal_transfer()',
+                        auth: 'SECURE LEDGER CREDIT (Automated)',
                         amount: amount,
                         balance: receiver.BALANCE,
                         isReceiver: true,
@@ -116,13 +172,21 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
                 if (sender?.EMAIL) {
                     const attachments = [{ filename: `Receipt-${transferRef}.pdf`, content: senderPdfBuffer, contentType: 'application/pdf' }];
-                    const body = `Hello ${sender.FULL_NAME},\n\nYour internal transfer of Rs.${amount} was successful. Receipt attached.\n\nRef: ${transferRef}`;
-                    await sendEmail(sender.EMAIL, 'Transaction Successful - Suraksha Bank', body, attachments).catch(e => console.error('Sender Email Error:', e));
+                    const senderHtml = templates.transaction(sender.FULL_NAME, {
+                        amount,
+                        ref: transferRef,
+                        type: 'Internal Transfer Out'
+                    });
+                    await sendEmail(sender.EMAIL, 'Transaction Successful - Safe Vault', senderHtml, attachments, true).catch(e => console.error('Sender Email Error:', e));
                 }
                 if (receiver?.EMAIL && receiverPdfBuffer) {
                     const attachments = [{ filename: `Credit-Note-${transferRef}.pdf`, content: receiverPdfBuffer, contentType: 'application/pdf' }];
-                    const body = `Hello ${receiver.FULL_NAME},\n\nYou received Rs.${amount} from ${sender ? sender.FULL_NAME : 'a customer'}. Receipt attached.\n\nRef: ${transferRef}`;
-                    await sendEmail(receiver.EMAIL, 'Funds Received - Suraksha Bank', body, attachments).catch(e => console.error('Receiver Email Error:', e));
+                    const receiverHtml = templates.transaction(receiver.FULL_NAME, {
+                        amount,
+                        ref: transferRef,
+                        type: 'Internal Transfer In'
+                    });
+                    await sendEmail(receiver.EMAIL, 'Funds Received - Suraksha Bank', receiverHtml, attachments, true).catch(e => console.error('Receiver Email Error:', e));
                 }
             }
         } catch (postErr) {
@@ -162,7 +226,7 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
             if (!validation.valid) {
                 if (validation.email) {
                     const failBody = `Hello,\n\nYour recent external transfer attempt failed.\nReason: ${validation.reason}\nTimestamp: ${new Date().toLocaleString()}`;
-                    await sendEmail(validation.email, 'Transfer Failed - Suraksha Bank', failBody).catch(e => console.error(e));
+                    await sendEmail(validation.email, 'Transfer Failed - Safe Vault', failBody).catch(e => console.error(e));
                 }
                 return res.status(400).json({ message: validation.reason, attemptsLeft: validation.attemptsLeft });
             }
@@ -201,18 +265,25 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
                     date: new Date(),
                     sender: sender ? sender.FULL_NAME : fromAccountId,
                     receiver: `${toAccount} (${mode})`,
+                    status: `${mode} TRANSFER INITIATED`,
                     type: 'External Transfer (Pending)',
                     source: 'external',
+                    mode: mode,
                     procedure: 'sp_initiate_external_transfer()',
+                    auth: 'OTP VERIFIED (Customer Session)',
                     amount: amount,
                     balance: senderBalance,
-                    scopeNote: '✓ IN SCOPE — Phase 1 of two-phase external transfer · PENDING_EXTERNAL_TRANSFERS table. Requires Manager Approval.'
+                    scopeNote: `✓ IN SCOPE — Phase 1 of two-phase external transfer · PENDING_EXTERNAL_TRANSFERS table. Mode = ${mode}. Requires Manager Approval.`
                 });
 
                 if (sender?.EMAIL) {
                     const attachments = [{ filename: `Receipt-${transferRef}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }];
-                    const body = `Hello ${sender.FULL_NAME},\n\nYour external transfer of Rs.${amount} to account ${toAccount} has been queued. Receipt attached.\n\nRef: ${transferRef}`;
-                    await sendEmail(sender.EMAIL, 'External Transfer Queued - Suraksha Bank', body, attachments).catch(e => console.error('Email Error:', e));
+                    const senderHtml = templates.transaction(sender.FULL_NAME, {
+                        amount,
+                        ref: transferRef,
+                        type: 'External Transfer (Pending Approval)'
+                    });
+                    await sendEmail(sender.EMAIL, 'External Transfer Queued - Safe Vault', senderHtml, attachments, true).catch(e => console.error('Email Error:', e));
                 }
             }
         } catch (postErr) {
@@ -259,7 +330,10 @@ router.get('/transactions', verifyToken, requireRole(['CUSTOMER']), async (req, 
     let connection;
     try {
         connection = await oracledb.getConnection();
-        const result = await connection.execute(
+        const custId = getUserId(req);
+
+        // Fetch completed transactions
+        const historyRes = await connection.execute(
             `SELECT t.transaction_id, t.account_id, t.transaction_type, t.amount, t.balance_after,
                     t.transaction_date, t.description, t.transaction_ref
              FROM TRANSACTIONS t
@@ -267,10 +341,41 @@ router.get('/transactions', verifyToken, requireRole(['CUSTOMER']), async (req, 
              WHERE a.customer_id = :cust_id
              ORDER BY t.transaction_date DESC
              FETCH FIRST 10 ROWS ONLY`,
-            { cust_id: getUserId(req) },
+            { cust_id: custId },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
-        res.json({ transactions: result.rows });
+
+        // Fetch pending dual approvals
+        const pendingRes = await connection.execute(
+            `SELECT RAWTOHEX(q.queue_id) AS queue_id, q.operation_type, q.payload_json, q.created_at, q.status, 'QUEUED-' || RAWTOHEX(q.queue_id) AS transaction_ref
+             FROM DUAL_APPROVAL_QUEUE q
+             JOIN CUSTOMERS c ON q.requested_by = c.user_id
+             WHERE c.customer_id = :cust_id AND q.status = 'PENDING'`,
+            { cust_id: custId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        const transactions = historyRes.rows.map(r => ({ ...r, STATUS: 'COMPLETED' }));
+
+        const pendingTransactions = pendingRes.rows.map(r => {
+            let payload = {};
+            try { payload = JSON.parse(r.PAYLOAD_JSON || '{}'); } catch (e) {}
+            return {
+                TRANSACTION_ID: r.QUEUE_ID,
+                ACCOUNT_ID: payload.fromAccountId || 'N/A',
+                TRANSACTION_TYPE: 'INTERNAL_TRANSFER_PENDING',
+                AMOUNT: payload.amount || 0,
+                BALANCE_AFTER: null,
+                TRANSACTION_DATE: r.CREATED_AT,
+                DESCRIPTION: `QUEUED: ${payload.operation || 'High-value Transfer'} Pending Manager Approval`,
+                TRANSACTION_REF: r.TRANSACTION_REF,
+                STATUS: 'PENDING'
+            };
+        });
+
+        const combined = [...pendingTransactions, ...transactions].sort((a, b) => new Date(b.TRANSACTION_DATE) - new Date(a.TRANSACTION_DATE));
+
+        res.json({ transactions: combined.slice(0, 15) });
     } catch (err) {
         console.error('Fetch transactions error:', err);
         res.status(500).json({ message: 'Could not fetch transactions.' });
@@ -278,6 +383,7 @@ router.get('/transactions', verifyToken, requireRole(['CUSTOMER']), async (req, 
         if (connection) await connection.close();
     }
 });
+
 
 // GET /api/customer/profile  - fetch logged-in customer profile
 router.get('/profile', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
@@ -461,11 +567,14 @@ router.post('/statements/email', verifyToken, requireRole(['CUSTOMER']), async (
             contentType: 'application/pdf'
         }];
 
+        const emailHtml = templates.update(accResult.rows[0].FULL_NAME || 'Customer', 'Your requested account statement is attached below. You can also view your transaction history anytime through the digital banking dashboard.');
+
         await sendEmail(
             customerEmail,
-            'Suraksha Bank - Account Statement',
-            `Dear ${accResult.rows[0].FULL_NAME || 'Customer'},\\n\\nPlease find your requested account statement attached.\\n\\nRegards,\\nSuraksha Bank`,
-            attachments
+            'Safe Vault - Account Statement',
+            emailHtml,
+            attachments,
+            true
         );
 
         res.json({ message: 'Statement emailed successfully!' });
@@ -496,8 +605,8 @@ router.post('/change-password', verifyToken, requireRole(['CUSTOMER']), async (r
         const validation = await verifyOtp(connection, req.user.id, otpCode, 'PROFILE_UPDATE');
         if (!validation.valid) {
             if (validation.email) {
-                const failBody = `Hello,\n\nYour recent profile update attempt (Password Change) failed.\nReason: ${validation.reason}\nTimestamp: ${new Date().toLocaleString()}`;
-                await sendEmail(validation.email, 'Profile Update Failed - Suraksha Bank', failBody).catch(e => console.error(e));
+                const failHtml = templates.update(req.user.name || 'Customer', `A password change attempt failed. Reason: ${validation.reason}`);
+                await sendEmail(validation.email, 'Security Alert: Profile Update Failed', failHtml, [], true).catch(e => console.error(e));
             }
             return res.status(400).json({ message: validation.reason });
         }
@@ -703,11 +812,21 @@ router.post('/cheque/request', verifyToken, requireRole(['CUSTOMER']), async (re
         // Since we don't have a separate table for 'Requests', we can either:
         // 1. Directly issue it (if policy allows)
         // 2. Create a Service Request of type 'CHEQUE_BOOK'
+        // Fetch the branch ID for the specific account
+        const accRes = await connection.execute(
+            `SELECT home_branch_id FROM ACCOUNTS WHERE account_id = :aid AND customer_id = :cid`,
+            { aid: accountId, cid: getUserId(req) },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        
+        const branchId = accRes.rows[0]?.HOME_BRANCH_ID;
+
         await connection.execute(
-            `BEGIN sp_create_service_request(:cust_id, 'OTHER', :desc); END;`,
+            `BEGIN sp_create_service_request(:cust_id, 'OTHER', :desc, :bid); END;`,
             {
                 cust_id: getUserId(req),
-                desc: `Requesting ${leavesCount} leaves cheque book for account ${accountId}`
+                desc: `Requesting ${leavesCount} leaves cheque book for account ${accountId}`,
+                bid: branchId
             },
             { autoCommit: true }
         );
@@ -755,6 +874,109 @@ router.post('/service-requests', verifyToken, requireRole(['CUSTOMER']), async (
     } catch (err) {
         console.error('Create SR Error:', err);
         res.status(500).json({ message: 'Failed to submit service request.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// --- CHEQUE MANAGEMENT ---
+
+// GET /api/customer/cheque/books
+// List all cheque books for the customer's accounts
+router.get('/cheque/books', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const result = await connection.execute(
+            `SELECT cb.*, at.type_name as account_type
+             FROM CHEQUE_BOOKS cb
+             JOIN ACCOUNTS a ON cb.account_id = a.account_id
+             JOIN ACCOUNT_TYPES at ON a.account_type_id = at.type_id
+             WHERE a.customer_id = :cust_id
+             ORDER BY cb.issued_at DESC`,
+            { cust_id: req.user.id },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Fetch Cheque Books Error:', err);
+        res.status(500).json({ message: 'Error fetching cheque books.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// GET /api/customer/cheque/history/:bookId
+// View status of individual cheques (cleared, stopped, etc.) for a specific book
+router.get('/cheque/history/:bookId', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // Security check: Ensure this book belongs to the customer
+        const ownerCheck = await connection.execute(
+            `SELECT cb.book_id FROM CHEQUE_BOOKS cb 
+             JOIN ACCOUNTS a ON cb.account_id = a.account_id 
+             WHERE cb.book_id = :bid AND a.customer_id = :cid`,
+            { bid: req.params.bookId, cid: req.user.id }
+        );
+
+        if (ownerCheck.rows.length === 0) {
+            return res.status(403).json({ message: 'Access denied or book not found.' });
+        }
+
+        const result = await connection.execute(
+            `SELECT c.*, sp.reason as stop_reason
+             FROM CHEQUES c
+             LEFT JOIN STOP_PAYMENT_INSTRUCTIONS sp ON c.cheque_number = sp.cheque_number AND sp.status = 'ACTIVE'
+             WHERE c.book_id = :bid
+             ORDER BY c.cheque_number ASC`,
+            { bid: req.params.bookId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Fetch Cheque History Error:', err);
+        res.status(500).json({ message: 'Error fetching cheque history.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/customer/cheque/stop
+// Request stop payment for a specific cheque number
+router.post('/cheque/stop', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    const { accountId, chequeNumber, reason, otpCode } = req.body;
+    if (!accountId || !chequeNumber || !reason || !otpCode) {
+        return res.status(400).json({ message: 'Missing required fields (accountId, chequeNumber, reason, otpCode).' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // 1. Verify OTP
+        const validation = await verifyOtp(connection, req.user.id, otpCode, 'TRANSACTION');
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.reason || 'Invalid or expired OTP.' });
+        }
+
+        // 2. Call sp_record_stop_payment (reusing teller procedure but setting teller_id as 'SELF')
+        await connection.execute(
+            `BEGIN sp_record_stop_payment(:chq_num, :acc_id, :reason, :initiator); END;`,
+            {
+                chq_num: chequeNumber,
+                acc_id: accountId,
+                reason: reason,
+                initiator: 'CUSTOMER:' + (req.user.username || req.user.id)
+            },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Stop payment instruction recorded successfully.' });
+    } catch (err) {
+        const error = mapOracleError(err);
+        res.status(error.status).json({ message: error.message });
     } finally {
         if (connection) await connection.close();
     }

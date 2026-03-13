@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield, Lock, User, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
 import styles from './login.module.css';
 
 const TEST_CREDENTIALS = [
@@ -17,9 +19,10 @@ const TEST_CREDENTIALS = [
 export default function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [showGuide, setShowGuide] = useState(false);
+    const [showGuide, setShowGuide] = useState(true);
     const router = useRouter();
 
     const fillAndLogin = (cred) => {
@@ -64,22 +67,64 @@ export default function LoginPage() {
         }
     };
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1 }
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.glowTop}></div>
             <div className={styles.glowBottom}></div>
 
-            <div className={styles.loginCard}>
-                <div className={styles.logoStack}>
-                    <div className={styles.bankName}>Suraksha <span>Bank</span></div>
-                    <div className={styles.tagline}>Safe Vault System · Secure Individual Login</div>
-                </div>
+            <motion.div
+                className={`${styles.loginCard} pearl-card`}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+                <motion.div className={styles.logoStack} variants={containerVariants} initial="hidden" animate="visible">
+                    <motion.div className={styles.logoIcon} variants={itemVariants}>
+                        <Shield size={40} className={styles.shieldIcon} />
+                    </motion.div>
+                    <motion.div className={`${styles.bankName} text-gradient-gold`} variants={itemVariants}>
+                        Safe <span>Vault</span>
+                    </motion.div>
+                    <motion.div className={styles.tagline} variants={itemVariants}>
+                        Safe Vault System · Secure Individual Login
+                    </motion.div>
+                </motion.div>
 
-                <form onSubmit={handleLogin} className={styles.formContainer}>
-                    {error && <div className={styles.errorMsg}>{error}</div>}
+                <motion.form
+                    onSubmit={handleLogin}
+                    className={styles.formContainer}
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                >
+                    <AnimatePresence>
+                        {error && (
+                            <motion.div
+                                className={styles.errorMsg}
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                            >
+                                {error}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                    <div className={styles.inputGroup}>
-                        <label>Username</label>
+                    <motion.div className={styles.inputGroup} variants={itemVariants}>
+                        <label><User size={14} /> Username</label>
                         <input
                             type="text"
                             value={username}
@@ -88,58 +133,84 @@ export default function LoginPage() {
                             autoComplete="username"
                             required
                         />
-                    </div>
+                    </motion.div>
 
-                    <div className={styles.inputGroup}>
-                        <label>Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            autoComplete="current-password"
-                            required
-                        />
-                    </div>
+                    <motion.div className={styles.inputGroup} variants={itemVariants}>
+                        <label><Lock size={14} /> Password</label>
+                        <div className={styles.passwordWrapper}>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                autoComplete="current-password"
+                                required
+                            />
+                            <button
+                                type="button"
+                                className={styles.eyeBtn}
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+                    </motion.div>
 
-                    <button type="submit" className={styles.loginBtn} disabled={loading}>
-                        {loading ? 'AUTHENTICATING…' : 'SECURE LOGIN ➔'}
-                    </button>
-                </form>
+                    <motion.button
+                        type="submit"
+                        className={styles.loginBtn}
+                        disabled={loading}
+                        variants={itemVariants}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                    >
+                        {loading ? 'AUTHENTICATING…' : (
+                            <>SECURE LOGIN <ChevronRight size={18} /></>
+                        )}
+                    </motion.button>
+                </motion.form>
 
                 {/* Test credentials guide */}
-                <div className={styles.credGuideWrap}>
+                <motion.div className={styles.credGuideWrap} variants={itemVariants} initial="hidden" animate="visible">
                     <button
                         className={styles.credToggle}
                         onClick={() => setShowGuide(g => !g)}
                         type="button"
                     >
-                        {showGuide ? '▲ Hide' : '▼ Show'} Demo Credentials
+                        <Info size={14} /> {showGuide ? 'Hide' : 'Show'} Word Bank (Test Credentials)
                     </button>
 
-                    {showGuide && (
-                        <div className={styles.credGrid}>
-                            {TEST_CREDENTIALS.map((c) => (
-                                <button
-                                    key={c.username}
-                                    className={`${styles.credCard} ${c.role === 'CUSTOMER' ? styles.credCustomer : styles.credStaff}`}
-                                    onClick={() => fillAndLogin(c)}
-                                    type="button"
-                                >
-                                    <div className={styles.credLabel}>{c.label}</div>
-                                    <div className={styles.credUser}>{c.username}</div>
-                                    <div className={styles.credTag}>{c.tag}</div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                    <AnimatePresence>
+                        {showGuide && (
+                            <motion.div
+                                className={styles.credGrid}
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                            >
+                                {TEST_CREDENTIALS.map((c) => (
+                                    <motion.button
+                                        key={c.username}
+                                        className={`${styles.credCard} ${c.role === 'CUSTOMER' ? styles.credCustomer : styles.credStaff}`}
+                                        onClick={() => fillAndLogin(c)}
+                                        whileHover={{ x: 5, backgroundColor: 'rgba(255,255,255,0.05)' }}
+                                        type="button"
+                                    >
+                                        <div className={styles.credLabel}>{c.label}</div>
+                                        <div className={styles.credUser}>{c.username}</div>
+                                        <div className={styles.credTag}>{c.tag}</div>
+                                    </motion.button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
 
-                <div className={styles.footerLinks}>
+                <motion.div className={styles.footerLinks} variants={itemVariants}>
                     <a href="#">Forgot Password?</a>
                     <a href="#">Contact IT Support</a>
-                </div>
-            </div>
+                </motion.div>
+            </motion.div>
         </div>
     );
 }

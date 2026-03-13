@@ -17,7 +17,7 @@ export default function ComplianceFlags() {
     const fetchFlags = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/compliance`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -35,7 +35,7 @@ export default function ComplianceFlags() {
     const handleReview = async (flagId) => {
         setReviewLoading(flagId);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/compliance/${flagId}/review`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }

@@ -36,11 +36,16 @@ END;
 CREATE OR REPLACE PROCEDURE sp_create_service_request (
     p_customer_id IN VARCHAR2,
     p_type IN VARCHAR2,
-    p_desc IN CLOB
+    p_desc IN CLOB,
+    p_branch_id IN VARCHAR2 DEFAULT NULL
 ) AS
     v_branch_id VARCHAR2(20);
 BEGIN
-    SELECT home_branch_id INTO v_branch_id FROM ACCOUNTS WHERE customer_id = p_customer_id FETCH FIRST 1 ROWS ONLY;
+    IF p_branch_id IS NOT NULL THEN
+        v_branch_id := p_branch_id;
+    ELSE
+        SELECT home_branch_id INTO v_branch_id FROM ACCOUNTS WHERE customer_id = p_customer_id FETCH FIRST 1 ROWS ONLY;
+    END IF;
 
     INSERT INTO SERVICE_REQUESTS (customer_id, branch_id, request_type, description)
     VALUES (p_customer_id, v_branch_id, p_type, p_desc);

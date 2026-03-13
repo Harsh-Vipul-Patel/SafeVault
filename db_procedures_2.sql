@@ -126,13 +126,17 @@ END;
 CREATE OR REPLACE PROCEDURE sp_submit_dual_approval (
     p_operation_type IN VARCHAR2,
     p_payload_clob IN CLOB,
-    p_requested_by IN RAW
+    p_requested_by_username IN VARCHAR2
 ) AS
+    v_user_id RAW(16);
 BEGIN
+    SELECT user_id INTO v_user_id FROM USERS WHERE LOWER(username) = LOWER(p_requested_by_username);
+    
     INSERT INTO DUAL_APPROVAL_QUEUE (requested_by, operation_type, payload_json, status)
-    VALUES (p_requested_by, p_operation_type, p_payload_clob, 'PENDING');
+    VALUES (v_user_id, p_operation_type, p_payload_clob, 'PENDING');
     COMMIT;
 END;
+
 /
 
 -- 8. Set Account Status (Manager Only)

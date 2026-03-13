@@ -4,6 +4,7 @@ const oracledb = require('oracledb');
 const bcrypt = require('bcryptjs');
 const { verifyToken } = require('../middleware/auth');
 const { sendEmail } = require('../utils/emailService');
+const templates = require('../utils/emailTemplates');
 
 // Generate and send an OTP
 router.post('/generate', verifyToken, async (req, res) => {
@@ -16,24 +17,47 @@ router.post('/generate', verifyToken, async (req, res) => {
     let connection;
     try {
         connection = await oracledb.getConnection();
+        const { targetCustomerId, targetAccountId } = req.body;
 
-        // Fetch user email by joining against CUSTOMERS with customer_id (req.user.id usually holds string like 'CUST-XXX' for customers)
-        const userCheck = await connection.execute(
-            `SELECT u.user_id, u.username, c.email FROM USERS u
-             JOIN CUSTOMERS c ON c.user_id = u.user_id
-             WHERE c.customer_id = :req_id`,
-            { req_id: req.user.id },
-            { outFormat: oracledb.OUT_FORMAT_OBJECT }
-        );
+        let query, binds;
 
-        if (userCheck.rows.length === 0) {
-            return res.status(404).json({ message: 'User/Customer profile not found.' });
+        if (req.user.role === 'TELLER' || req.user.role === 'BRANCH_MANAGER') {
+            // Teller/Manager can generate OTP for a customer
+            if (targetCustomerId) {
+                query = `SELECT u.user_id, c.email, c.full_name FROM USERS u 
+                         JOIN CUSTOMERS c ON c.user_id = u.user_id 
+                         WHERE c.customer_id = :id`;
+                binds = { id: targetCustomerId };
+            } else if (targetAccountId) {
+                query = `SELECT u.user_id, c.email, c.full_name FROM USERS u 
+                         JOIN CUSTOMERS c ON c.user_id = u.user_id 
+                         JOIN ACCOUNTS a ON a.customer_id = c.customer_id
+                         WHERE a.account_id = :id`;
+                binds = { id: targetAccountId };
+            } else {
+                return res.status(400).json({ message: 'targetCustomerId or targetAccountId required for Teller-initiated OTP.' });
+            }
+        } else {
+            // Customer generating for themselves
+            query = `SELECT u.user_id, c.email, c.full_name FROM USERS u 
+                     JOIN CUSTOMERS c ON c.user_id = u.user_id 
+                     WHERE c.customer_id = :req_id`;
+            binds = { req_id: req.user.id };
         }
 
-        const realUserId = userCheck.rows[0].USER_ID;
-        const email = userCheck.rows[0].EMAIL;
+        const userCheck = await connection.execute(query, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ message: 'Target Customer profile not found.' });
+        }
+
+        const row = userCheck.rows[0];
+        const realUserId = row.USER_ID;
+        const email = row.EMAIL;
+        const fullName = row.FULL_NAME || 'Customer';
+
         if (!email) {
-            return res.status(400).json({ message: 'No email address associated with your profile.' });
+            return res.status(400).json({ message: 'No email address associated with the target profile.' });
         }
 
         // Generate 6-digit OTP
@@ -53,25 +77,9 @@ router.post('/generate', verifyToken, async (req, res) => {
             { autoCommit: true }
         );
 
-        // Send Email
-        let details = '';
-        if (amount && toAccountId) {
-            details = `You are initiating a transfer of $${amount} to account ${toAccountId}.\n`;
-        }
-
-        const emailBody = `
-Hello,
-
-${details}Your Secure One Time Password (OTP) for ${purpose} is:
-${otpCode}
-
-WARNING: This code will strictly expire in 1 minute and is limited to 3 attempts.
-Do not share this code with anyone.
-
-Regards,
-Suraksha Bank Support
-`;
-        await sendEmail(email, 'Suraksha Bank - Action Required (OTP)', emailBody);
+        // Send HTML Email using Template
+        const emailHtml = templates.otp(fullName, otpCode);
+        await sendEmail(email, 'Suraksha Bank - Security OTP', emailHtml, [], true);
 
         res.json({ message: 'OTP sent successfully to your registered email.' });
     } catch (err) {

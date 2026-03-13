@@ -12,7 +12,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
  * @param {Array} attachments - Optional array of attachment objects
  * @returns {Promise<any>}
  */
-const sendEmail = async (to, subject, text, attachments = []) => {
+const sendEmail = async (to, subject, content, attachments = [], isHtml = false) => {
     try {
         if (!process.env.RESEND_API_KEY) {
             console.error('RESEND_API_KEY is not set in .env');
@@ -23,7 +23,7 @@ const sendEmail = async (to, subject, text, attachments = []) => {
             from: process.env.RESEND_FROM_EMAIL || 'Suraksha Bank <onboarding@resend.dev>',
             to,
             subject,
-            text,
+            [isHtml ? 'html' : 'text']: content,
             attachments: attachments.map(att => ({
                 ...att,
                 content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content

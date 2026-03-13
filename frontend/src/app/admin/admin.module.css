@@ -1,24 +1,27 @@
 .layout {
     display: flex;
     min-height: 100vh;
-    background: #0A0F18;
-    /* Darker than Navy for Admin */
+    background: #020617;
+    /* Deep midnight for Admin */
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
 }
 
 /* SIDEBAR */
 .sidebar {
-    width: 260px;
-    background: #070B12;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    width: 300px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
     display: flex;
     flex-direction: column;
-    padding: 32px 20px;
-    z-index: 10;
+    padding: 32px 0;
+    z-index: 100;
 }
 
 .brandBox {
+    padding: 0 32px;
     margin-bottom: 40px;
-    text-align: center;
 }
 
 .bankName {
@@ -30,43 +33,45 @@
 }
 
 .bankName span {
-    color: var(--admin);
-    filter: brightness(1.5);
+    color: #c982d6;
+    /* Indigo/Purple for Admin */
 }
 
 .consoleTag {
     font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.2em;
+    font-size: 8px;
+    letter-spacing: 0.15em;
     color: #c982d6;
-    /* Purple tint */
     text-transform: uppercase;
     margin-top: 8px;
-    background: rgba(92, 26, 107, 0.2);
-    padding: 4px;
+    background: rgba(201, 130, 214, 0.05);
+    padding: 4px 8px;
     border-radius: 4px;
-    border: 1px solid rgba(92, 26, 107, 0.5);
+    border: 1px solid rgba(201, 130, 214, 0.1);
+    display: inline-block;
 }
 
 .adminProfile {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    margin-bottom: 24px;
+    border-radius: 16px;
+    margin: 0 20px 32px 20px;
 }
 
 .avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--admin), #2A0933);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #c982d6, #6366f1);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
 }
 
 .info {
@@ -75,68 +80,144 @@
 }
 
 .name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--cream);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
 }
 
 .role {
     font-family: 'DM Mono', monospace;
-    font-size: 9px;
+    font-size: 10px;
     color: #c982d6;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
 }
 
+.searchContainer {
+    margin: 0 20px 24px 20px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 12px;
+    color: var(--muted);
+}
+
+.adminSearch {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    padding: 10px 12px 10px 36px;
+    color: var(--white);
+    font-size: 11px;
+    transition: all 0.3s;
+    font-family: 'DM Mono', monospace;
+}
+
+.adminSearch:focus {
+    outline: none;
+    border-color: #c982d6;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.navMenu {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px;
+}
+
+.navMenu::-webkit-scrollbar {
+    width: 4px;
+}
+
+.navMenu::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
 
 .navList {
     list-style: none;
-    flex: 1;
+    padding: 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .navList li a {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 16px;
-    border-radius: 8px;
+    padding: 11px 16px;
+    border-radius: 10px;
     color: var(--muted);
     text-decoration: none;
     font-size: 13px;
     font-weight: 500;
-    transition: all 0.2s;
+    transition: all 0.3s;
+    position: relative;
 }
 
 .navList li a:hover {
-    background: rgba(255, 255, 255, 0.03);
-    color: var(--cream2);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--white);
 }
 
 .navList li.activeNav a {
-    background: rgba(92, 26, 107, 0.15);
+    background: rgba(201, 130, 214, 0.05);
     color: #c982d6;
-    border-right: 3px solid var(--admin);
+    font-weight: 600;
+}
+
+.navIcon {
+    opacity: 0.5;
+    transition: all 0.3s;
+}
+
+.navList li a:hover .navIcon,
+.navList li.activeNav a .navIcon {
+    opacity: 1;
+    color: #c982d6;
+}
+
+.activeIndicator {
+    position: absolute;
+    left: 0;
+    width: 2px;
+    height: 16px;
+    background: #c982d6;
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 12px #c982d6;
 }
 
 .dangerBtn {
-    margin-top: auto;
-    background: transparent;
-    color: #FF4A4A;
-    border: 1px solid rgba(255, 74, 74, 0.3);
-    border-radius: 8px;
-    padding: 12px;
+    margin: 24px 20px 0 20px;
+    background: rgba(255, 74, 74, 0.02);
+    color: var(--muted);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 14px;
     font-family: 'DM Mono', monospace;
     font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
     letter-spacing: 0.1em;
-    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .dangerBtn:hover {
-    background: rgba(255, 74, 74, 0.1);
+    background: rgba(255, 74, 74, 0.1) !important;
+    border-color: rgba(255, 74, 74, 0.2) !important;
+    color: #FF4A4A !important;
 }
 
 /* MAIN CONTENT */
@@ -144,40 +225,48 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: radial-gradient(circle at top right, rgba(92, 26, 107, 0.05) 0%, transparent 60%);
+    min-height: 100vh;
 }
 
 .topbar {
-    height: 64px;
-    padding: 0 40px;
+    height: 80px;
+    padding: 0 48px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    background: rgba(2, 6, 23, 0.7);
+    backdrop-filter: blur(20px);
+    position: sticky;
+    top: 0;
+    z-index: 90;
 }
 
 .systemStatus {
     font-family: 'DM Mono', monospace;
     font-size: 10px;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.1em;
     color: #3DD68C;
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    background: rgba(61, 214, 140, 0.03);
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(61, 214, 140, 0.1);
 }
 
 .pulse {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     background: #3DD68C;
     border-radius: 50%;
     box-shadow: 0 0 8px #3DD68C;
-    animation: pulseAnim 2s infinite;
+    animation: pulse 2s infinite;
 }
 
-@keyframes pulseAnim {
+@keyframes pulse {
     0% {
         transform: scale(1);
         opacity: 1;
@@ -197,7 +286,21 @@
 .topActions {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
+}
+
+.breadcrumb {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.crumbActive {
+    color: var(--white);
+    font-weight: 700;
 }
 
 .dateStamp {
@@ -208,7 +311,7 @@
 }
 
 .contentWrap {
-    padding: 40px;
+    padding: 48px;
     flex: 1;
     overflow-y: auto;
 }

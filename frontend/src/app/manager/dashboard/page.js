@@ -1,5 +1,20 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    TrendingUp,
+    TrendingDown,
+    ShieldCheck,
+    UserPlus,
+    Activity,
+    AlertTriangle,
+    CheckCircle,
+    ArrowRight,
+    Download,
+    Calendar,
+    Wallet,
+    Scale
+} from 'lucide-react';
 import styles from './page.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -40,9 +55,9 @@ export default function ManagerDashboard() {
 
     const formatCurrency = (val) => {
         const num = Number(val) || 0;
-        if (num >= 100000) return '₹ ' + (num / 100000).toFixed(2) + ' L';
-        if (num >= 1000) return '₹ ' + (num / 1000).toFixed(1) + ' K';
-        return '₹ ' + num.toLocaleString('en-IN');
+        if (num >= 100000) return '₹' + (num / 100000).toFixed(2) + ' L';
+        if (num >= 1000) return '₹' + (num / 1000).toFixed(1) + ' K';
+        return '₹' + num.toLocaleString('en-IN');
     };
 
     const timeAgo = (dateStr) => {
@@ -56,71 +71,106 @@ export default function ManagerDashboard() {
         return Math.floor(hrs / 24) + ' days ago';
     };
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+    };
+
     if (loading) {
         return (
-            <div className={styles.dashboard}>
-                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>Loading dashboard data from Oracle...</div>
+            <div className={styles.loadingState}>
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    className={styles.loader}
+                />
+                <p>Establishing Secure Link to Oracle Node...</p>
             </div>
         );
     }
 
     return (
-        <div className={styles.dashboard}>
-            <header className={styles.header}>
-                <div className={styles.greeting}>Branch Overview Dashboard</div>
-                <div className={styles.headerActions}>
-                    <button className={styles.btnPrimary}>EOD SETTLEMENT</button>
-                    <button className={styles.btnGhost}>GENERATE REPORT</button>
+        <motion.div
+            className={styles.dashboard}
+            initial="hidden"
+            animate="show"
+            variants={containerVariants}
+        >
+            <motion.header variants={itemVariants} className={styles.header}>
+                <div className={styles.titleGroup}>
+                    <h1 className={`${styles.greeting} text-gradient-gold`}>Branch Oversight</h1>
+                    <p className={styles.headerSub}>Admin Node: Mumbai Vault (003) · Integrity Level: ALPHA</p>
                 </div>
-            </header>
+                <div className={styles.headerActions}>
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className={styles.btnPrimary}>
+                        <ShieldCheck size={16} /> EOD SETTLEMENT
+                    </motion.button>
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className={styles.btnGhost}>
+                        <Download size={16} /> EXPORT AUDIT
+                    </motion.button>
+                </div>
+            </motion.header>
 
-            {error && <div style={{ color: '#FF4A4A', fontSize: '13px', padding: '12px 16px', background: 'rgba(255,74,74,0.1)', borderRadius: '8px' }}>{error}</div>}
+            {error && <motion.div variants={itemVariants} className={styles.errorBanner}>{error}</motion.div>}
 
             {/* KPIS */}
             <div className={styles.kpiGrid}>
-                <div className={styles.kpiCard}>
+                <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card`}>
                     <div className={styles.kpiHeader}>
                         <div className={styles.kpiLabel}>TOTAL DEPOSITS (TODAY)</div>
-                        <div className={styles.kpiIcon}>💰</div>
+                        <div className={styles.kpiIcon}><Wallet size={18} /></div>
                     </div>
                     <div className={styles.kpiValue}>{formatCurrency(kpis.totalDeposits)}</div>
-                    <div className={styles.kpiTrend}>From Oracle DB</div>
-                </div>
+                    <div className={styles.kpiTrend}><TrendingUp size={12} /> Live Oracle Sync</div>
+                </motion.div>
 
-                <div className={styles.kpiCard}>
+                <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card`}>
                     <div className={styles.kpiHeader}>
                         <div className={styles.kpiLabel}>TOTAL WITHDRAWALS</div>
-                        <div className={styles.kpiIcon}>💸</div>
+                        <div className={styles.kpiIcon}><TrendingDown size={18} /></div>
                     </div>
                     <div className={styles.kpiValue}>{formatCurrency(kpis.totalWithdrawals)}</div>
-                    <div className={styles.kpiTrendDown}>Today's total</div>
-                </div>
+                    <div className={styles.kpiTrendNeutral}><Calendar size={12} /> Today&apos;s cycle</div>
+                </motion.div>
 
-                <div className={styles.kpiCardAlert}>
+                <motion.div variants={itemVariants} className={`${styles.kpiCardAlert} pearl-card`}>
                     <div className={styles.kpiHeader}>
                         <div className={styles.kpiLabelAlert}>PENDING APPROVALS</div>
-                        <div className={styles.kpiIcon}>⚖️</div>
+                        <div className={styles.kpiIconAlert}><Scale size={18} /></div>
                     </div>
                     <div className={styles.kpiValue}>{kpis.pendingApprovals}</div>
-                    <div className={styles.kpiTrendAlert}>Awaiting review</div>
-                </div>
+                    <div className={styles.kpiTrendAlert}><Activity size={12} /> Awaiting Dual-Auth</div>
+                </motion.div>
 
-                <div className={styles.kpiCard}>
+                <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card`}>
                     <div className={styles.kpiHeader}>
                         <div className={styles.kpiLabel}>NEW ACCOUNTS</div>
-                        <div className={styles.kpiIcon}>🆕</div>
+                        <div className={styles.kpiIcon}><UserPlus size={18} /></div>
                     </div>
                     <div className={styles.kpiValue}>{kpis.newAccounts}</div>
-                    <div className={styles.kpiTrend}>Opened today</div>
-                </div>
+                    <div className={styles.kpiTrend}><CheckCircle size={12} /> Growth target met</div>
+                </motion.div>
             </div>
 
             <div className={styles.splitGrid}>
                 {/* APPROVAL QUEUE PREVIEW */}
-                <div className={styles.panel}>
+                <motion.div variants={itemVariants} className={`${styles.panel} glass-surface`}>
                     <div className={styles.panelHeader}>
-                        <h2 className={styles.panelTitle}>Action Required: Dual Approval Queue</h2>
-                        <button className={styles.linkBtn} onClick={() => window.location.href = '/manager/approvals'}>View Full Queue ➔</button>
+                        <div className={styles.panelTitleGroup}>
+                            <Scale size={18} />
+                            <h2 className={styles.panelTitle}>Dual Approval Queue</h2>
+                        </div>
+                        <button className={styles.linkBtn} onClick={() => window.location.href = '/manager/approvals'}>
+                            Review Full Queue <ArrowRight size={14} />
+                        </button>
                     </div>
                     <div className={styles.tableWrap}>
                         <div className={styles.thRow}>
@@ -130,53 +180,82 @@ export default function ManagerDashboard() {
                             <div style={{ textAlign: 'right' }}>STATUS</div>
                         </div>
 
-                        {approvalPreview.length === 0 ? (
-                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>No pending approvals</div>
-                        ) : approvalPreview.map((item, i) => (
-                            <div className={styles.tdRow} key={i}>
-                                <div className={styles.tdId}>{item.QUEUE_ID ? item.QUEUE_ID.substring(0, 8).toUpperCase() : 'N/A'}</div>
-                                <div className={styles.tdOp}><span className={styles.opChip}>{item.OPERATION_TYPE || 'N/A'}</span></div>
-                                <div>{item.REQUESTED_BY_NAME || 'System'}</div>
-                                <div className={styles.tdAmount}>{item.STATUS}</div>
-                            </div>
-                        ))}
+                        <div className={styles.tableBody}>
+                            {approvalPreview.length === 0 ? (
+                                <div className={styles.emptyState}>No pending approvals</div>
+                            ) : (
+                                <AnimatePresence>
+                                    {approvalPreview.map((item, i) => (
+                                        <motion.div
+                                            className={styles.tdRow}
+                                            key={i}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.05 }}
+                                        >
+                                            <div className={styles.tdId}>{item.QUEUE_ID ? item.QUEUE_ID.substring(0, 8).toUpperCase() : 'N/A'}</div>
+                                            <div className={styles.tdOp}><span className={styles.opChip}>{item.OPERATION_TYPE || 'N/A'}</span></div>
+                                            <div className={styles.tdOwner}>{item.REQUESTED_BY_NAME || 'System'}</div>
+                                            <div className={styles.tdStatus}>{item.STATUS}</div>
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
+                            )}
+                        </div>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* BRANCH LIVE FEED */}
-                <div className={styles.panel}>
+                <motion.div variants={itemVariants} className={`${styles.panel} glass-surface`}>
                     <div className={styles.panelHeader}>
-                        <h2 className={styles.panelTitle}>Live Branch Activity</h2>
+                        <div className={styles.panelTitleGroup}>
+                            <Activity size={18} />
+                            <h2 className={styles.panelTitle}>Live Feed</h2>
+                        </div>
                         <div className={styles.liveIndicator}>LIVE</div>
                     </div>
                     <div className={styles.feedList}>
                         {liveFeed.transactions.length === 0 && liveFeed.flags.length === 0 ? (
-                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>No recent activity</div>
+                            <div className={styles.emptyState}>No recent activity</div>
                         ) : (
-                            <>
+                            <AnimatePresence>
                                 {liveFeed.flags.map((flag, i) => (
-                                    <div className={styles.feedItem} key={'f' + i}>
-                                        <div className={styles.feedIcon}>⚠️</div>
+                                    <motion.div
+                                        className={styles.feedItem}
+                                        key={'f' + i}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                    >
+                                        <div className={styles.feedIconAlert}><AlertTriangle size={16} /></div>
                                         <div className={styles.feedContent}>
                                             <div className={styles.feedTextAlert}>{flag.FLAG_TYPE} on {flag.ACCOUNT_ID}</div>
                                             <div className={styles.feedTime}>{timeAgo(flag.FLAGGED_AT)}</div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
                                 {liveFeed.transactions.map((txn, i) => (
-                                    <div className={styles.feedItem} key={'t' + i}>
-                                        <div className={styles.feedIcon}>✅</div>
+                                    <motion.div
+                                        className={styles.feedItem}
+                                        key={'t' + i}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                    >
+                                        <div className={styles.feedIcon}><CheckCircle size={16} /></div>
                                         <div className={styles.feedContent}>
-                                            <div className={styles.feedText}><strong>{txn.INITIATED_BY || 'System'}</strong> {txn.TRANSACTION_TYPE} — {formatCurrency(txn.AMOUNT)} on {txn.ACCOUNT_ID}</div>
+                                            <div className={styles.feedText}>
+                                                <strong>{txn.INITIATED_BY || 'System'}</strong> {txn.TRANSACTION_TYPE}
+                                                <span className={styles.feedAmount}> {formatCurrency(txn.AMOUNT)}</span>
+                                            </div>
                                             <div className={styles.feedTime}>{timeAgo(txn.TRANSACTION_DATE)}</div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
-                            </>
+                            </AnimatePresence>
                         )}
                     </div>
-                </div>
+                </motion.div>
             </div>
-        </div>
+        </motion.div>
     );
 }

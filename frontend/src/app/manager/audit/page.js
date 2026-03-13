@@ -17,7 +17,7 @@ export default function BranchAuditLog() {
     const fetchAudit = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             let url = `${API}/api/manager/audit?limit=50`;
             if (dateFilter) url += `&date=${dateFilter}`;
             const res = await fetch(url, {
@@ -25,7 +25,7 @@ export default function BranchAuditLog() {
             });
             if (!res.ok) throw new Error('Failed to fetch audit log');
             const data = await res.json();
-            setEntries(data.auditEntries || []);
+            setEntries(data.audit || []);
         } catch (err) {
             console.error(err);
             setError(err.message);

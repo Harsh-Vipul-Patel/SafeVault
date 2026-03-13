@@ -22,6 +22,16 @@
 
   --r: 12px;
   --r-sm: 8px;
+
+  /* Luxury UI Tokens */
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-soft: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --shadow-pearl: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  --shadow-deep: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+  --grad-pearl: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(201, 150, 42, 0.05) 100%);
+  --grad-gold: linear-gradient(135deg, #C9962A 0%, #E8B84B 100%);
+  --bg-card: #162032;
 }
 
 * {
@@ -36,104 +46,54 @@ body {
   color: var(--cream);
   min-height: 100vh;
   overflow-x: hidden;
+  background-attachment: fixed;
 }
 
-/* ── BACKGROUND TEXTURE ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201, 150, 42, 0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(30, 80, 140, 0.15) 0%, transparent 60%),
-    repeating-linear-gradient(0deg,
-      transparent,
-      transparent 39px,
-      rgba(255, 255, 255, 0.015) 39px,
-      rgba(255, 255, 255, 0.015) 40px),
-    repeating-linear-gradient(90deg,
-      transparent,
-      transparent 39px,
-      rgba(255, 255, 255, 0.015) 39px,
-      rgba(255, 255, 255, 0.015) 40px);
-  pointer-events: none;
+/* ── LUXURY UTILITIES ── */
+.glass-surface {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
 }
 
-.dm-mono {
-  font-family: 'DM Mono', monospace;
+.pearl-card {
+  background: var(--grad-pearl);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-pearl);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.playfair {
-  font-family: 'Playfair Display', serif;
+.pearl-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(201, 150, 42, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 15px rgba(201, 150, 42, 0.2);
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--cream) 0%, var(--gold2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* ── STATUS BADGES ── */
-.status-badge {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: inline-block;
-}
-
-.status-active,
-.status-verified,
-.status-resolved,
-.status-done {
-  background: rgba(52, 211, 153, 0.1);
-  color: #34D399;
-  border: 1px solid rgba(52, 211, 153, 0.2);
-}
-
-.status-pending,
-.status-processing,
-.status-chilled {
-  background: rgba(245, 158, 11, 0.1);
-  color: #FBBF24;
-  border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.status-failed,
-.status-expired,
-.status-blocked,
-.status-stopped {
-  background: rgba(248, 113, 113, 0.1);
-  color: #F87171;
-  border: 1px solid rgba(248, 113, 113, 0.2);
-}
-
+/* ── DASHBOARD CARD OVERRIDE ── */
 .dashboard-card {
-  background: rgba(30, 41, 59, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 24px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-soft);
 }
 
 .dashboard-card:hover {
-  border-color: var(--gold);
+  border-color: rgba(201, 150, 42, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
 }

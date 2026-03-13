@@ -25,6 +25,7 @@ CREATE TABLE USERS (
     last_login TIMESTAMP WITH TIME ZONE,
     failed_attempts SMALLINT DEFAULT 0,
     is_locked CHAR(1) DEFAULT '0',
+    session_token VARCHAR2(100),
     user_type VARCHAR2(20) CHECK (user_type IN ('CUSTOMER','EMPLOYEE'))
 );
 
@@ -212,7 +213,7 @@ CREATE TABLE AUDIT_LOG (
     audit_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     table_name VARCHAR2(50) NOT NULL,
     record_id VARCHAR2(50) NOT NULL,
-    operation VARCHAR2(10) NOT NULL,
+    operation VARCHAR2(30) NOT NULL,
     changed_by VARCHAR2(50) NOT NULL,
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
     old_value_json CLOB,
@@ -284,3 +285,4 @@ BEGIN
     RAISE_APPLICATION_ERROR(-20005, 'Audit log records cannot be modified or deleted.');
 END;
 /
+COMMIT;

@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const oracledb = require('oracledb');
 const crypto = require('crypto');
-const { JWT_SECRET } = require('../middleware/auth');
+const { JWT_SECRET, verifyToken } = require('../middleware/auth');
 
 // POST /api/auth/login
 // Authenticates against Oracle USERS table, then determines role from CUSTOMERS or EMPLOYEES
@@ -73,10 +73,15 @@ router.post('/login', async (req, res) => {
 
         // 4. Generate Session Token, Reset failed attempts & update last_login
         const sessionToken = crypto.randomUUID();
+        const sqlUpdate = `UPDATE USERS 
+                           SET failed_attempts = 0, 
+                               last_login = SYSTIMESTAMP, 
+                               session_token = :stoken 
+                           WHERE LOWER(username) = LOWER(:uname)`;
+
         await connection.execute(
-            `UPDATE USERS SET failed_attempts = 0, last_login = SYSTIMESTAMP, session_token = :stoken
-             WHERE LOWER(username) = LOWER(:uname)`,
-            { uname: username.trim(), stoken: sessionToken },
+            sqlUpdate,
+            { stoken: sessionToken, uname: username.trim() },
             { autoCommit: true }
         );
 
@@ -141,8 +146,25 @@ router.post('/login', async (req, res) => {
     }
 });
 
-router.post('/logout', (req, res) => {
-    res.json({ message: 'Logged out successfully.' });
+router.post('/logout', verifyToken, async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const username = req.user.username;
+
+        await connection.execute(
+            `UPDATE USERS SET session_token = NULL WHERE LOWER(username) = LOWER(:uname)`,
+            { uname: username },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Logged out successfully and session invalidated.' });
+    } catch (err) {
+        console.error('Logout Error:', err);
+        res.status(500).json({ message: 'Error during logout.' });
+    } finally {
+        if (connection) await connection.close();
+    }
 });
 
 module.exports = router;

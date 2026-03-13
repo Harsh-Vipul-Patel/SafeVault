@@ -10,8 +10,8 @@ async function getEmployeeId(connection, userId) {
     const result = await connection.execute(
         `SELECT e.employee_id, e.branch_id FROM EMPLOYEES e
          JOIN USERS u ON e.user_id = u.user_id
-         WHERE RAWTOHEX(u.user_id) = :uid OR e.employee_id = :uid2`,
-        { uid: userId, uid2: userId },
+         WHERE RAWTOHEX(u.user_id) = :u_id1 OR e.employee_id = :u_id2`,
+        { u_id1: userId, u_id2: userId },
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     return result.rows[0] || null;

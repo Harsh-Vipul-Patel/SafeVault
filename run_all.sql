@@ -22,4 +22,4 @@ PROMPT 6. Inserting Seed Data...
 @@db_seed.sql
 
 PROMPT Complete Setup Finished.
-EXIT;
+

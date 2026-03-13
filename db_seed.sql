@@ -49,20 +49,20 @@ PROMPT Employees inserted.
 
 -- 4. ACCOUNT_TYPES
 INSERT INTO ACCOUNT_TYPES (type_name, interest_rate, min_balance, max_withdrawal)
-VALUES ('Savings Premium', 0.045, 25000.00, 2000000.00);   -- type_id = 1
+VALUES ('Savings Premium', 0.045, 25000.00, 2000000.00);
 
 INSERT INTO ACCOUNT_TYPES (type_name, interest_rate, min_balance, max_withdrawal)
-VALUES ('Business Current', 0.000, 50000.00, 5000000.00);  -- type_id = 2
+VALUES ('Business Current', 0.000, 50000.00, 5000000.00);
 
 INSERT INTO ACCOUNT_TYPES (type_name, interest_rate, min_balance, max_withdrawal)
-VALUES ('Basic Savings', 0.035, 500.00, 500000.00);        -- type_id = 3
+VALUES ('Basic Savings', 0.035, 500.00, 500000.00);
 COMMIT;
 
 PROMPT Account types inserted.
 
 -- 5. CUSTOMERS
 INSERT INTO CUSTOMERS (customer_id, full_name, date_of_birth, pan_number, email, phone, kyc_status, user_id)
-SELECT 'CUST-001', 'Ravi Verma', DATE '1988-04-15', 'ABCPV1234A', 'ravi.verma@email.com', '9876543210', 'VERIFIED', user_id
+SELECT 'CUST-001', 'Ravi Verma', DATE '1988-04-15', 'ABCPV1234A', 'kingharsh272@gmail.com', '9876543210', 'VERIFIED', user_id
 FROM USERS WHERE username = 'ravi.verma';
 
 INSERT INTO CUSTOMERS (customer_id, full_name, date_of_birth, pan_number, email, phone, kyc_status, user_id)
@@ -122,4 +122,4 @@ PROMPT   ACC-MUM-003-8821 : Ravi Verma - Savings  (1,02,0000)
 PROMPT   ACC-MUM-003-1029 : Ravi Verma - Current  (2,25,000)
 PROMPT   ACC-MUM-003-0421 : Amit Kumar - Savings  (1,24,500)
 PROMPT =============================================
-EXIT;
+COMMIT;

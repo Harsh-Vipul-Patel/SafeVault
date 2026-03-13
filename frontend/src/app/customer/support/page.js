@@ -3,20 +3,20 @@ import Link from 'next/link';
 import styles from './support.module.css';
 
 const branchInfo = {
-    name: 'Suraksha Bank — Mumbai Central Branch',
+    name: 'Safe Vault — Mumbai Central Branch',
     code: 'BRN-MUM-003',
     ifsc: 'SRKB0000003',
     address: '4th Floor, Nariman Point Financial Complex, Nariman Point, Mumbai – 400 021',
     phone: '+91 (022) 6600-3000',
     toll: '1800-103-3000 (Toll-Free)',
-    email: 'branch.mum003@surakshabank.in',
+    email: 'branch.mum003@safevault.io',
     hours: [
         { day: 'Monday – Friday', time: '9:30 AM – 3:30 PM (Counter), 9:00 AM – 6:00 PM (Admin)' },
         { day: 'Saturday', time: '9:30 AM – 1:30 PM (Counter)' },
         { day: 'Sunday / Bank Holidays', time: 'Closed' },
     ],
     manager: 'Suresh Nair, Branch Manager',
-    manager_email: 'suresh.nair@surakshabank.in'
+    manager_email: 'suresh.nair@safevault.io'
 };
 
 export default function ContactBranch() {

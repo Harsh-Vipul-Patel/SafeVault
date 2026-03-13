@@ -16,7 +16,7 @@ export default function StaffManagement() {
     const fetchStaff = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/staff`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });

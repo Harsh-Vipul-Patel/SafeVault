@@ -18,7 +18,7 @@ export default function SettleTransfers() {
     const fetchTransfers = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/settlement?status=${filter}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -36,7 +36,7 @@ export default function SettleTransfers() {
     const handleAction = async (transferId, action) => {
         setActionLoading(transferId);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/settlement/${transferId}/${action}`, {
                 method: 'POST',
                 headers: {

@@ -18,7 +18,7 @@ export default function AccountLifecycle() {
     const fetchAccounts = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/accounts`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -37,7 +37,7 @@ export default function AccountLifecycle() {
         setActionLoading(accountId);
         setSuccess(null);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/accounts/${accountId}/status`, {
                 method: 'POST',
                 headers: {
@@ -46,7 +46,10 @@ export default function AccountLifecycle() {
                 },
                 body: JSON.stringify({ newStatus, reason: `Status changed to ${newStatus} via Manager Portal` })
             });
-            if (!res.ok) throw new Error('Status change failed');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Status change failed');
+            }
             const data = await res.json();
             setSuccess(data.message);
             await fetchAccounts();
@@ -108,7 +111,9 @@ export default function AccountLifecycle() {
                                 ) : (
                                     <>
                                         {a.STATUS !== 'ACTIVE' && (
-                                            <button className={styles.btnApprove} style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleStatusChange(a.ACCOUNT_ID, 'ACTIVE')}>ACTIVATE</button>
+                                            <button className={styles.btnApprove} style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleStatusChange(a.ACCOUNT_ID, 'ACTIVE')}>
+                                                {a.STATUS === 'FROZEN' ? 'UNFREEZE' : 'ACTIVATE'}
+                                            </button>
                                         )}
                                         {a.STATUS !== 'FROZEN' && a.STATUS !== 'CLOSED' && (
                                             <button className={styles.btnReject} style={{ padding: '6px 10px', fontSize: '11px', borderColor: '#5B9BFF', color: '#5B9BFF' }} onClick={() => handleStatusChange(a.ACCOUNT_ID, 'FROZEN')}>FREEZE</button>

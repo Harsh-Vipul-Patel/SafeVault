@@ -1,23 +1,24 @@
 -- Suraksha Bank — Resend Email Integration Setup (Oracle 21c)
 
 -- 1. Create NOTIFICATION_LOG Table
-CREATE TABLE NOTIFICATION_LOG (
-  notif_id          NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  customer_id       VARCHAR2(20) REFERENCES CUSTOMERS(customer_id),
-  user_id           RAW(16) REFERENCES USERS(user_id),
-  trigger_event     VARCHAR2(40) NOT NULL,
-  channel           VARCHAR2(10) NOT NULL CHECK (channel IN ('EMAIL', 'SMS', 'IN_APP')),
-  message_clob      CLOB NOT NULL, -- Will store JSON payload
-  status            VARCHAR2(10) DEFAULT 'QUEUED' NOT NULL
-                    CHECK (status IN ('QUEUED', 'SENT', 'FAILED')),
-  resend_message_id VARCHAR2(40),
-  created_at        TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL
-);
+BEGIN
+    EXECUTE IMMEDIATE 'CREATE TABLE NOTIFICATION_LOG (
+      notif_id          NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      customer_id       VARCHAR2(20) REFERENCES CUSTOMERS(customer_id),
+      user_id           RAW(16) REFERENCES USERS(user_id),
+      trigger_event     VARCHAR2(40) NOT NULL,
+      channel           VARCHAR2(10) NOT NULL CHECK (channel IN (''EMAIL'', ''SMS'', ''IN_APP'')),
+      message_clob      CLOB NOT NULL,
+      status            VARCHAR2(10) DEFAULT ''QUEUED'' NOT NULL CHECK (status IN (''QUEUED'', ''SENT'', ''FAILED'')),
+      resend_message_id VARCHAR2(40),
+      created_at        TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL
+    )';
+EXCEPTION WHEN OTHERS THEN 
+    IF SQLCODE != -955 THEN RAISE; END IF;
+END;
+/
 
-CREATE INDEX idx_notif_status ON NOTIFICATION_LOG(status);
-CREATE INDEX idx_notif_customer ON NOTIFICATION_LOG(customer_id);
-
--- 2. Update sp_generate_branch_mis to return REF CURSOR (v6.0 requirement)
+-- 2. Update sp_generate_branch_mis
 CREATE OR REPLACE PROCEDURE sp_generate_branch_mis (
     p_branch_id IN VARCHAR2,
     p_from_date IN DATE,

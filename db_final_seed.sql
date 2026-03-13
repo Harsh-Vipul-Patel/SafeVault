@@ -42,5 +42,5 @@ COMMIT;
 
 -- Verify final state
 SELECT account_id, balance, status, account_type_id FROM ACCOUNTS ORDER BY account_id;
-
+COMMIT;
 EXIT;

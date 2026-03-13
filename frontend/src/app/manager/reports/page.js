@@ -18,7 +18,7 @@ export default function BranchReports() {
         setLoading(true);
         setError(null);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/reports?fromDate=${fromDate}&toDate=${toDate}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });

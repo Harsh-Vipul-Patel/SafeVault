@@ -1,5 +1,20 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    TrendingUp,
+    FileText,
+    Clock,
+    IndianRupee,
+    PieChart,
+    Users,
+    ArrowUpRight,
+    CheckCircle,
+    Layers,
+    Briefcase,
+    AlertCircle,
+    RefreshCw
+} from 'lucide-react';
 import styles from '../loan-pages.module.css';
 
 export default function LoanDashboard() {
@@ -29,88 +44,152 @@ export default function LoanDashboard() {
         fetchDashboard();
     }, []);
 
-    if (loading) return <div style={{ color: 'var(--cream)' }}>Loading portfolio...</div>;
-    if (error) return <div style={{ color: '#ff6b6b' }}>Error: {error}</div>;
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+    };
+
+    if (loading) return (
+        <div className={styles.loadingContainer}>
+            <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                className={styles.loanLoader}
+            >
+                <PieChart size={40} color="#4CAF50" />
+            </motion.div>
+            <p>Aggregating Portfolio Data...</p>
+        </div>
+    );
+
+    if (error) return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={styles.errorState}>
+            <AlertCircle size={24} />
+            <p>System Error: {error}</p>
+        </motion.div>
+    );
 
     const kpis = data.kpis || {};
     const emis = data.emisDueToday || {};
     const loans = data.loans || [];
 
     return (
-        <div>
-            <div className={styles.pageHeader}>
-                <div>
-                    <h1 className={styles.pageTitle}>Portfolio Dashboard</h1>
-                    <p className={styles.pageSubtitle}>Overview of lending operations and branch performance</p>
+        <motion.div
+            initial="hidden"
+            animate="show"
+            variants={containerVariants}
+        >
+            <motion.div variants={itemVariants} className={styles.pageHeader}>
+                <div className={styles.titleGroup}>
+                    <h1 className={`${styles.pageTitle} text-gradient-gold`}>Portfolio Intelligence</h1>
+                    <p className={styles.pageSubtitle}>Structural Capital & Asset Performance Management</p>
                 </div>
-            </div>
+                <div className={styles.headerActions}>
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className={styles.btnSync}>
+                        <RefreshCw size={14} /> LIVE RECALC
+                    </motion.button>
+                </div>
+            </motion.div>
 
             <div className={styles.kpiGrid}>
-                <div className={styles.kpiCard}>
-                    <div className={styles.kpiLabel}>Active Loans</div>
+                <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card`}>
+                    <div className={styles.kpiHeader}>
+                        <div className={styles.kpiLabel}>ACTIVE POOL</div>
+                        <Briefcase size={16} className={styles.kpiIcon} />
+                    </div>
                     <div className={styles.kpiValue}>{kpis.ACTIVE_LOANS_COUNT || 0}</div>
-                    <div style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '8px' }}>
-                        Total Value: ₹{(kpis.ACTIVE_LOANS_VALUE || 0).toLocaleString('en-IN')}
+                    <div className={styles.kpiSub}>
+                        Market Value: <span className={styles.textGold}>₹{(kpis.ACTIVE_LOANS_VALUE || 0).toLocaleString('en-IN')}</span>
                     </div>
-                </div>
-                <div className={styles.kpiCard}>
-                    <div className={styles.kpiLabel}>Pending Applications</div>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card ${styles.kpiAlert}`}>
+                    <div className={styles.kpiHeader}>
+                        <div className={styles.kpiLabel}>ASSET REVIEW</div>
+                        <Layers size={16} className={styles.kpiIcon} />
+                    </div>
                     <div className={styles.kpiValue}>{kpis.PENDING_REVIEW_COUNT || 0}</div>
-                    <div style={{ color: '#FF9800', fontSize: '13px', marginTop: '8px' }}>
-                        Requires Action
+                    <div className={`${styles.kpiSub} ${styles.textWarning}`}>
+                        <Clock size={12} /> Awaiting Approval
                     </div>
-                </div>
-                <div className={styles.kpiCard}>
-                    <div className={styles.kpiLabel}>EMIs Due Today</div>
-                    <div className={styles.kpiValue}>{emis.count || 0}</div>
-                    <div style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '8px' }}>
-                        Expected: ₹{(emis.total || 0).toLocaleString('en-IN')}
+                </motion.div>
+
+                <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card`}>
+                    <div className={styles.kpiHeader}>
+                        <div className={styles.kpiLabel}>EXPECTED INFLOW</div>
+                        <TrendingUp size={16} className={styles.kpiIcon} />
                     </div>
-                </div>
+                    <div className={styles.kpiValue}>{emis.count || 0} <span className={styles.unit}>Due</span></div>
+                    <div className={styles.kpiSub}>
+                        Projection: <span className={styles.textGreen}>₹{(emis.total || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                </motion.div>
             </div>
 
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>Recent Loan Activity</h2>
+            <motion.div variants={itemVariants} className={`${styles.section} glass-surface`}>
+                <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>Strategic Lending Activity</h2>
+                    <div className={styles.activePill}>LIVE FEED</div>
+                </div>
                 <div className={styles.tableContainer}>
                     <table className={styles.dataTable}>
                         <thead>
                             <tr>
-                                <th>Applicant</th>
-                                <th>Loan Type</th>
-                                <th>Amount</th>
-                                <th>App Status</th>
-                                <th>Account ID / Status</th>
+                                <th>Borrower / Entity</th>
+                                <th>Asset Class</th>
+                                <th>Principal</th>
+                                <th>Lifecycle Stage</th>
+                                <th>Control Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {loans.slice(0, 10).map((l, i) => (
-                                <tr key={i}>
-                                    <td>
-                                        <div style={{ fontWeight: 500, color: 'var(--cream)' }}>{l.CUSTOMER_NAME}</div>
-                                        <div style={{ fontSize: '12px', color: 'var(--muted)' }}>APP-{l.LOAN_APP_ID.substring(0, 6)}...</div>
-                                    </td>
-                                    <td>{l.LOAN_TYPE}</td>
-                                    <td>₹{l.OUTSTANDING_PRINCIPAL?.toLocaleString('en-IN')}</td>
-                                    <td><span className={`${styles.statusBadge} ${styles['status_' + l.APP_STATUS]}`}>{l.APP_STATUS}</span></td>
-                                    <td>
-                                        {l.LOAN_ACCOUNT_ID ? (
-                                            <>
-                                                <div>{l.LOAN_ACCOUNT_ID}</div>
-                                                <span className={`${styles.statusBadge} ${styles['status_' + l.ACCOUNT_STATUS]}`} style={{ marginTop: 4 }}>
-                                                    {l.ACCOUNT_STATUS}
-                                                </span>
-                                            </>
-                                        ) : <span style={{ color: 'var(--muted)' }}>Not Disbursed</span>}
-                                    </td>
-                                </tr>
-                            ))}
+                            <AnimatePresence>
+                                {loans.slice(0, 10).map((l, i) => (
+                                    <motion.tr
+                                        key={l.LOAN_APP_ID}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                    >
+                                        <td>
+                                            <div className={styles.customerName}>{l.CUSTOMER_NAME}</div>
+                                            <div className={styles.appId}>ID: APP-{l.LOAN_APP_ID.substring(0, 6)}</div>
+                                        </td>
+                                        <td><div className={styles.loanTypeBadge}>{l.LOAN_TYPE}</div></td>
+                                        <td className={styles.amountCell}>₹{l.OUTSTANDING_PRINCIPAL?.toLocaleString('en-IN')}</td>
+                                        <td>
+                                            <span className={`${styles.statusBadge} ${styles['status_' + l.APP_STATUS]}`}>
+                                                {l.APP_STATUS}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {l.LOAN_ACCOUNT_ID ? (
+                                                <div className={styles.accountControl}>
+                                                    <span className={styles.accId}>{l.LOAN_ACCOUNT_ID}</span>
+                                                    <span className={`${styles.statusBadgeSmall} ${styles['status_' + l.ACCOUNT_STATUS]}`}>
+                                                        {l.ACCOUNT_STATUS}
+                                                    </span>
+                                                </div>
+                                            ) : <span className={styles.notDisbursed}>UNASSIGNED</span>}
+                                        </td>
+                                    </motion.tr>
+                                ))}
+                            </AnimatePresence>
                             {loans.length === 0 && (
-                                <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--muted)' }}>No recent loans found.</td></tr>
+                                <tr><td colSpan="5" className={styles.emptyTable}>No active instruments detected in the lending pool.</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }

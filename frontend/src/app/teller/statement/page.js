@@ -124,7 +124,7 @@ export default function PrintStatement() {
                     </table>
 
                     <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '11px', color: '#64748B', textAlign: 'center' }}>
-                        {transactions.length} transaction(s) · Generated: {new Date().toLocaleString('en-IN')} · Suraksha Bank — Mumbai Central Branch
+                        {transactions.length} transaction(s) · Generated: {new Date().toLocaleString('en-IN')} · Safe Vault — Mumbai Central Branch
                     </div>
                 </div>
             )}
