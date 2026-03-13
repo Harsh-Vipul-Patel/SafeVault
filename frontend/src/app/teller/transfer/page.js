@@ -12,10 +12,13 @@ export default function FundTransfer() {
     const [desc, setDesc] = useState('');
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null);
+    const [otpCode, setOtpCode] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [fetching, setFetching] = useState(false);
 
     const handleTransfer = async () => {
-        if (!fromAccount || !toAccount || !amount || Number(amount) <= 0) {
-            setMsg({ type: 'error', text: 'All fields are required.' });
+        if (!fromAccount || !toAccount || !amount || Number(amount) <= 0 || !otpCode) {
+            setMsg({ type: 'error', text: 'All fields and OTP are required.' });
             return;
         }
         if (fromAccount.trim() === toAccount.trim()) {
@@ -30,13 +33,14 @@ export default function FundTransfer() {
                 body: JSON.stringify({
                     fromAccountId: fromAccount.trim(),
                     toAccountId: toAccount.trim(),
-                    amount: Number(amount)
+                    amount: Number(amount),
+                    customerOtpCode: otpCode
                 })
             });
             const data = await res.json();
             if (res.ok) {
                 setMsg({ type: 'success', text: `✓ ${data.message}  |  REF: ${data.ref}` });
-                setAmount(''); setFromAccount(''); setToAccount(''); setDesc('');
+                setAmount(''); setFromAccount(''); setToAccount(''); setDesc(''); setOtpCode(''); setOtpSent(false);
             } else {
                 setMsg({ type: 'error', text: data.message || 'Transfer failed.' });
             }
@@ -44,6 +48,35 @@ export default function FundTransfer() {
             setMsg({ type: 'error', text: 'Network connection failed. Check backend server.' });
         }
         setLoading(false);
+    };
+
+    const handleSendOTP = async () => {
+        if (!fromAccount || !amount) {
+            setMsg({ type: 'error', text: 'Please enter From Account and Amount first to generate an OTP.' });
+            return;
+        }
+        setFetching(true); setMsg(null);
+        try {
+            const res = await fetch(`${API}/api/otp/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+                body: JSON.stringify({
+                    purpose: 'TRANSACTION',
+                    targetAccountId: fromAccount.trim(),
+                    amount: amount
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setOtpSent(true);
+                setMsg({ type: 'success', text: 'OTP sent to customer email successfully.' });
+            } else {
+                setMsg({ type: 'error', text: data.message || 'Failed to send OTP.' });
+            }
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Network Error.' });
+        }
+        setFetching(false);
     };
 
     return (
@@ -96,6 +129,29 @@ export default function FundTransfer() {
                         placeholder="Transfer reason..."
                         value={desc}
                         onChange={e => setDesc(e.target.value)}
+                    />
+                </div>
+
+                <div className={styles.formGroup}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <label style={{ margin: 0 }}>Customer Authorization OTP</label>
+                        <button
+                            className={styles.btnSecondary}
+                            onClick={handleSendOTP}
+                            disabled={fetching || !fromAccount || !amount}
+                            style={{ padding: '4px 12px', fontSize: '10px' }}
+                        >
+                            {fetching ? '...' : (otpSent ? 'RESEND OTP' : 'SEND OTP')}
+                        </button>
+                    </div>
+                    <input
+                        type="text"
+                        className={styles.input}
+                        placeholder="6-DIGIT CODE"
+                        value={otpCode}
+                        onChange={e => setOtpCode(e.target.value)}
+                        maxLength="6"
+                        style={{ textAlign: 'center', letterSpacing: '0.2em' }}
                     />
                 </div>
 

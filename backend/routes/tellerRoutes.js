@@ -889,15 +889,57 @@ router.post('/cheque/issue', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
 
 // POST /api/teller/cheque/stop
 router.post('/cheque/stop', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']), async (req, res) => {
-    const { chequeNumber, accountId, reason } = req.body;
+    const { chequeNumber, accountId, reason, customerOtpCode } = req.body;
+    if (!chequeNumber || !accountId || !customerOtpCode) {
+        return res.status(400).json({ message: 'chequeNumber, accountId and customerOtpCode are required.' });
+    }
+
     let connection;
     try {
         connection = await oracledb.getConnection();
+        
+        // Fetch customer ID associated with the account
+        const accRes = await connection.execute(
+            `SELECT customer_id FROM ACCOUNTS WHERE account_id = :acc_id`, { acc_id: accountId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = accRes.rows[0]?.CUSTOMER_ID;
+        if (!customerId) return res.status(404).json({ message: 'Account not found.' });
+
+        // Verify Customer OTP
+        const validation = await verifyOtp(connection, customerId, customerOtpCode, 'TRANSACTION');
+        if (!validation.valid) {
+            return res.status(400).json({ message: 'OTP Validation Failed: ' + validation.reason, attemptsLeft: validation.attemptsLeft });
+        }
+
         await connection.execute(
             `BEGIN sp_record_stop_payment(:chq, :acc, :reason, :teller); END;`,
-            { chq: chequeNumber, acc: accountId, reason, teller: getTellerId(req) },
+            { chq: chequeNumber, acc: accountId, reason: reason || 'Stop Payment Requested by Customer', teller: getTellerId(req) },
             { autoCommit: true }
         );
+
+        // --- Fetch details and send email on success ---
+        try {
+            const draweeResult = await connection.execute(
+                `SELECT c.email, c.full_name FROM ACCOUNTS a 
+                 JOIN CUSTOMERS c ON a.customer_id = c.customer_id 
+                 WHERE a.account_id = :acc`,
+                { acc: accountId },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+
+            const drawee = draweeResult.rows[0];
+
+            if (drawee?.EMAIL) {
+                const mailHtml = templates.update(
+                    drawee.FULL_NAME || 'Customer', 
+                    `The stop payment instruction for Cheque Number <b>${chequeNumber}</b> has been successfully recorded and the cheque has been marked as stopped.`
+                );
+                await sendEmail(drawee.EMAIL, 'Cheque Stop Payment Authorized - Safe Vault', mailHtml, [], true).catch(e => console.error('Email Error:', e));
+            }
+        } catch (emailErr) {
+            console.error('Failed to send stop payment email:', emailErr);
+        }
+
         res.json({ message: 'Stop payment recorded successfully.' });
     } catch (err) {
         const error = mapOracleError(err);
@@ -918,6 +960,53 @@ router.post('/cheque/clear', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
             { chq: chequeNumber, drawee: draweeAccountId, payee: payeeAccountId, amt: Number(amount), teller: getTellerId(req) },
             { autoCommit: true }
         );
+
+        // --- Fetch details and send emails on success ---
+        try {
+            const draweeResult = await connection.execute(
+                `SELECT c.email, c.full_name FROM ACCOUNTS a 
+                 JOIN CUSTOMERS c ON a.customer_id = c.customer_id 
+                 WHERE a.account_id = :acc`,
+                { acc: draweeAccountId },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+            const payeeResult = await connection.execute(
+                `SELECT c.email, c.full_name FROM ACCOUNTS a 
+                 JOIN CUSTOMERS c ON a.customer_id = c.customer_id 
+                 WHERE a.account_id = :acc`,
+                { acc: payeeAccountId },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+
+            const drawee = draweeResult.rows[0];
+            const payee = payeeResult.rows[0];
+            const transferRef = 'CHQ-CLR-' + chequeNumber;
+
+            if (drawee?.EMAIL) {
+                const draweeHtml = templates.transaction(drawee.FULL_NAME || 'Customer', {
+                    amount: amount,
+                    ref: transferRef,
+                    type: 'Cheque Cleared (Debit)',
+                    sender: drawee.FULL_NAME,
+                    receiver: payee?.FULL_NAME || payeeAccountId
+                });
+                await sendEmail(drawee.EMAIL, 'Cheque Cleared (Debit) - Safe Vault', draweeHtml, [], true).catch(e => console.error('Drawee Email Error:', e));
+            }
+
+            if (payee?.EMAIL) {
+                const payeeHtml = templates.transaction(payee.FULL_NAME || 'Customer', {
+                    amount: amount,
+                    ref: transferRef,
+                    type: 'Cheque Deposit (Credit)',
+                    sender: drawee?.FULL_NAME || draweeAccountId,
+                    receiver: payee.FULL_NAME
+                });
+                await sendEmail(payee.EMAIL, 'Cheque Cleared (Credit) - Safe Vault', payeeHtml, [], true).catch(e => console.error('Payee Email Error:', e));
+            }
+        } catch (emailErr) {
+            console.error('Failed to send cheque clear emails:', emailErr);
+        }
+
         res.json({ message: 'Cheque cleared successfully.' });
     } catch (err) {
         if (err.message && err.message.includes('ORA-20036')) {

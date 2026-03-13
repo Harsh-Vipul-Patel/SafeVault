@@ -13,6 +13,8 @@ export default function CashWithdrawal() {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null);
     const [newBalance, setNewBalance] = useState(null);
+    const [otpCode, setOtpCode] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
 
     const fetchAccount = async () => {
         if (!acctId.trim()) return;
@@ -31,8 +33,8 @@ export default function CashWithdrawal() {
     };
 
     const handleWithdrawal = async () => {
-        if (!acctId || !amount || Number(amount) <= 0) {
-            setMsg({ type: 'error', text: 'Enter a valid account ID and amount.' });
+        if (!acctId || !amount || Number(amount) <= 0 || !otpCode) {
+            setMsg({ type: 'error', text: 'Enter a valid account ID, amount, and OTP code.' });
             return;
         }
         setLoading(true); setMsg(null); setNewBalance(null);
@@ -40,13 +42,15 @@ export default function CashWithdrawal() {
             const res = await fetch(`${API}/api/teller/withdraw`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-                body: JSON.stringify({ accountId: acctId.trim(), amount: Number(amount) })
+                body: JSON.stringify({ accountId: acctId.trim(), amount: Number(amount), customerOtpCode: otpCode })
             });
             const data = await res.json();
             if (res.ok) {
                 setMsg({ type: 'success', text: `✓ ${data.message}  |  REF: ${data.ref}` });
                 if (data.newBalance !== undefined) setNewBalance(data.newBalance);
                 setAmount('');
+                setOtpCode('');
+                setOtpSent(false);
                 // Re-fetch account info to show updated balance in fetchedDetails
                 const res2 = await fetch(`${API}/api/teller/lookup?query=${encodeURIComponent(acctId.trim())}`, {
                     headers: { Authorization: `Bearer ${getToken()}` }
@@ -60,6 +64,35 @@ export default function CashWithdrawal() {
             setMsg({ type: 'error', text: 'Network connection failed. Check backend server.' });
         }
         setLoading(false);
+    };
+
+    const handleSendOTP = async () => {
+        if (!acctId || !amount) {
+            setMsg({ type: 'error', text: 'Please fetch an account and enter an amount first.' });
+            return;
+        }
+        setFetching(true); setMsg(null);
+        try {
+            const res = await fetch(`${API}/api/otp/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+                body: JSON.stringify({
+                    purpose: 'TRANSACTION',
+                    targetAccountId: acctId.trim(),
+                    amount: amount
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setOtpSent(true);
+                setMsg({ type: 'success', text: 'OTP sent to customer email successfully.' });
+            } else {
+                setMsg({ type: 'error', text: data.message || 'Failed to send OTP.' });
+            }
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Network Error.' });
+        }
+        setFetching(false);
     };
 
     const name = accountInfo?.FULL_NAME || accountInfo?.full_name;
@@ -123,6 +156,29 @@ export default function CashWithdrawal() {
                         value={amount}
                         min="1"
                         onChange={e => setAmount(e.target.value)}
+                    />
+                </div>
+
+                <div className={styles.formGroup}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <label style={{ margin: 0 }}>Customer Authorization OTP</label>
+                        <button
+                            className={styles.btnSecondary}
+                            onClick={handleSendOTP}
+                            disabled={fetching || !acctId || !amount}
+                            style={{ padding: '4px 12px', fontSize: '10px' }}
+                        >
+                            {fetching ? '...' : (otpSent ? 'RESEND OTP' : 'SEND OTP')}
+                        </button>
+                    </div>
+                    <input
+                        type="text"
+                        className={styles.input}
+                        placeholder="6-DIGIT CODE"
+                        value={otpCode}
+                        onChange={e => setOtpCode(e.target.value)}
+                        maxLength="6"
+                        style={{ textAlign: 'center', letterSpacing: '0.2em' }}
                     />
                 </div>
 

@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const oracledb = require('oracledb');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { sendEmail } = require('../utils/emailService');
+const templates = require('../utils/emailTemplates');
+const { verifyOtp } = require('../utils/otpHelper');
 
 // All endpoints require SYSTEM_ADMIN role
 router.use(verifyToken);
@@ -445,6 +448,107 @@ router.post('/mis/run-fee-deduction', async (req, res) => {
         res.json({ message: 'Global service charge deduction job triggered.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// --- ADMIN CUSTOMER UPDATES ---
+
+// GET /api/admin/customers/:userId
+// Fetch full customer details
+router.get('/customers/:userId', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const result = await connection.execute(
+            `SELECT * FROM CUSTOMERS WHERE user_id = HEXTORAW(:uid)`,
+            { uid: req.params.userId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Customer not found.' });
+        res.json({ customer: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/admin/customers/update-otp
+// Generate OTP and send to customer's email
+router.post('/customers/update-otp', async (req, res) => {
+    const { customerId } = req.body;
+    if (!customerId) return res.status(400).json({ message: 'Customer ID required.' });
+    const bcrypt = require('bcryptjs');
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const result = await connection.execute(
+            `SELECT email, full_name, user_id FROM CUSTOMERS WHERE customer_id = :cid`,
+            { cid: customerId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Customer not found.' });
+        const { EMAIL, FULL_NAME, USER_ID } = result.rows[0];
+        
+        if (!EMAIL) return res.status(400).json({ message: 'Customer has no email defined.' });
+
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = await bcrypt.hash(otpCode, 10);
+        
+        await connection.execute(
+            `INSERT INTO OTPS (user_id, transaction_id, otp_hash, purpose, expires_at, status)
+             VALUES (:user_id, :tx_id, :otp_hash, 'ADMIN_PROFILE_UPDATE', CURRENT_TIMESTAMP + INTERVAL '10' MINUTE, 'PENDING')`,
+            { user_id: USER_ID, tx_id: `UPD-${customerId}`, otp_hash: otpHash },
+            { autoCommit: true }
+        );
+
+        const emailHtml = templates.update(FULL_NAME, `Your bank administrator is updating your profile. Your OTP to authorize this is: <strong>${otpCode}</strong>.`);
+        await sendEmail(EMAIL, 'Suraksha Bank - Profile Update OTP', emailHtml, [], true);
+
+        // Send back USER_ID hex so customer/update can verify the OTP.
+        res.json({ message: 'OTP sent to customer successfully.', userIdHex: USER_ID.toString('hex') });
+    } catch (err) {
+        console.error('Update OTP Error:', err);
+        res.status(500).json({ message: 'Failed to send OTP: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/admin/customers/update
+// Verify OTP and update address/phone/email
+router.post('/customers/update', async (req, res) => {
+    const { customerId, userIdHex, otpCode, email, phone, address } = req.body;
+    if (!customerId || !userIdHex || !otpCode) return res.status(400).json({ message: 'Missing parameters.' });
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        
+        const validation = await verifyOtp(connection, userIdHex, otpCode, 'ADMIN_PROFILE_UPDATE');
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.reason, attemptsLeft: validation.attemptsLeft });
+        }
+
+        await connection.execute(
+            `UPDATE CUSTOMERS SET email = :email, phone = :phone, address = :address, updated_at = SYSDATE WHERE customer_id = :cid`,
+            { email: email || '', phone: phone || '', address: address || '', cid: customerId },
+            { autoCommit: true }
+        );
+        
+        // Log in audit log
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('CUSTOMERS', :cid, 'ADMIN_UPDATE', :admin, SYSTIMESTAMP, 'Profile updated by sys admin with OTP')`,
+            { cid: customerId.toString(), admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Customer profile updated successfully.' });
+    } catch (err) {
+        console.error('Update Profile Error:', err);
+        res.status(500).json({ message: 'Failed to update profile: ' + err.message });
     } finally {
         if (connection) await connection.close();
     }

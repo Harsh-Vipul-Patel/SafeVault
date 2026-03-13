@@ -12,6 +12,64 @@ const templates = require('../utils/emailTemplates');
 
 const getUserId = (req) => req.user?.id || 'WEB_USER';
 
+// POST /api/customer/auth/request-otp-stop
+// Called by tellers to request OTP from the customer for stopping a cheque
+router.post('/auth/request-otp-stop', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']), async (req, res) => {
+    const { accountId, chequeNumber, reason } = req.body;
+    if (!accountId || !chequeNumber) return res.status(400).json({ message: 'accountId and chequeNumber are required.' });
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        
+        // Fetch Customer Email & Details
+        const userCheck = await connection.execute(
+            `SELECT u.user_id, c.email, c.full_name FROM USERS u 
+             JOIN CUSTOMERS c ON c.user_id = u.user_id 
+             JOIN ACCOUNTS a ON a.customer_id = c.customer_id
+             WHERE a.account_id = :id`,
+            { id: accountId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        if (userCheck.rows.length === 0) return res.status(404).json({ message: 'Account or Customer profile not found.' });
+
+        const row = userCheck.rows[0];
+        const realUserId = row.USER_ID;
+        const email = row.EMAIL;
+        const fullName = row.FULL_NAME || 'Customer';
+
+        if (!email) return res.status(400).json({ message: 'No email address associated with the target profile.' });
+
+        // Generate 6-digit OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = await bcrypt.hash(otpCode, 10);
+
+        // Expire in 10 minute for cheque stop (higher importance)
+        await connection.execute(
+            `INSERT INTO OTPS (user_id, transaction_id, otp_hash, purpose, expires_at, status)
+             VALUES (:user_id, :tx_id, :otp_hash, :purpose, CURRENT_TIMESTAMP + INTERVAL '10' MINUTE, 'PENDING')`,
+            {
+                user_id: realUserId,
+                tx_id: chequeNumber,
+                otp_hash: otpHash,
+                purpose: 'TRANSACTION'
+            },
+            { autoCommit: true }
+        );
+
+        // Send HTML Email using the specific stop cheque Template
+        const emailHtml = templates.stopChequeOtp(fullName, otpCode, chequeNumber, reason || 'Stop Payment Requested by Customer');
+        await sendEmail(email, 'Suraksha Bank - Stop Payment Authorization', emailHtml, [], true);
+
+        res.json({ message: 'OTP sent successfully to customer registered email.' });
+    } catch (err) {
+        console.error('Stop Cheque OTP Error:', err);
+        res.status(500).json({ message: 'Failed to generate OTP.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
 // POST /api/customer/transfer/internal
 // Calls: sp_internal_transfer(p_sender_account_id, p_receiver_account_id, p_amount, p_initiated_by)
 router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER', 'BRANCH_MANAGER']), async (req, res) => {
@@ -675,12 +733,18 @@ router.get('/deposits', verifyToken, requireRole(['CUSTOMER']), async (req, res)
     try {
         connection = await oracledb.getConnection();
         const fds = await connection.execute(
-            `SELECT * FROM FD_ACCOUNTS WHERE customer_id = :cust_id`,
+            `SELECT f.*, 
+                    ROUND(principal_amount * POWER(1 + locked_rate/12/100, GREATEST(0, MONTHS_BETWEEN(SYSDATE, opened_at))), 2) AS CURRENT_VALUE,
+                    ROUND(principal_amount * POWER(1 + locked_rate/12/100, tenure_months), 2) AS PROJECTED_VALUE
+             FROM FD_ACCOUNTS f WHERE customer_id = :cust_id`,
             { cust_id: getUserId(req) },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
         const rds = await connection.execute(
-            `SELECT * FROM RD_ACCOUNTS WHERE customer_id = :cust_id`,
+            `SELECT r.*,
+                    ROUND(monthly_instalment * GREATEST(1, instalments_paid) * (1 + (rate/100) * (GREATEST(1, instalments_paid)/24)), 2) AS CURRENT_VALUE,
+                    ROUND(monthly_instalment * tenure_months * (1 + (rate/100) * (tenure_months/24)), 2) AS PROJECTED_VALUE
+             FROM RD_ACCOUNTS r WHERE customer_id = :cust_id`,
             { cust_id: getUserId(req) },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
@@ -688,6 +752,99 @@ router.get('/deposits', verifyToken, requireRole(['CUSTOMER']), async (req, res)
     } catch (err) {
         console.error('Fetch Deposits Error:', err);
         res.status(500).json({ message: 'Could not fetch deposit accounts.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/customer/deposits/closure-otp
+router.post('/deposits/closure-otp', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    const { depositId, type } = req.body; // type: 'FD' or 'RD'
+    if (!depositId || !type) return res.status(400).json({ message: 'Deposit ID and type are required.' });
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        
+        // Fetch Customer Email
+        const userCheck = await connection.execute(
+            `SELECT u.user_id, c.email, c.full_name FROM USERS u 
+             JOIN CUSTOMERS c ON c.user_id = u.user_id 
+             WHERE c.customer_id = :cust_id`,
+            { cust_id: getUserId(req) }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        if (userCheck.rows.length === 0) return res.status(404).json({ message: 'Customer profile not found.' });
+
+        const row = userCheck.rows[0];
+        const realUserId = row.USER_ID;
+        const email = row.EMAIL;
+        const fullName = row.FULL_NAME || 'Customer';
+
+        if (!email) return res.status(400).json({ message: 'No email address associated with your profile.' });
+
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = await bcrypt.hash(otpCode, 10);
+
+        await connection.execute(
+            `INSERT INTO OTPS (user_id, transaction_id, otp_hash, purpose, expires_at, status)
+             VALUES (:user_id, :tx_id, :otp_hash, :purpose, CURRENT_TIMESTAMP + INTERVAL '10' MINUTE, 'PENDING')`,
+            {
+                user_id: realUserId,
+                tx_id: `CLOSE-${type}-${depositId}`,
+                otp_hash: otpHash,
+                purpose: 'DEPOSIT_CLOSURE'
+            },
+            { autoCommit: true }
+        );
+
+        const emailHtml = templates.update(fullName, `You have requested to close your ${type} account (${depositId}). Your OTP is: <strong>${otpCode}</strong>. This OTP is valid for 10 minutes.`);
+        await sendEmail(email, `Suraksha Bank - ${type} Closure OTP`, emailHtml, [], true);
+
+        res.json({ message: 'OTP sent successfully to your registered email.' });
+    } catch (err) {
+        console.error('Deposit Closure OTP Error:', err);
+        res.status(500).json({ message: 'Failed to generate OTP.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/customer/deposits/close-request
+router.post('/deposits/close-request', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    const { depositId, type, otpCode } = req.body;
+    if (!depositId || !type || !otpCode) return res.status(400).json({ message: 'Missing parameters.' });
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        
+        const validation = await verifyOtp(connection, req.user.id, otpCode, 'DEPOSIT_CLOSURE');
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.reason, attemptsLeft: validation.attemptsLeft });
+        }
+
+        const payload = JSON.stringify({
+            depositId,
+            type,
+            customerName: req.user.name || 'Customer'
+        });
+
+        // Submit to DUAL_APPROVAL_QUEUE
+        await connection.execute(
+            `BEGIN sp_submit_dual_approval(:op, :payload, :req_by); END;`,
+            {
+                op: type === 'FD' ? 'FD_CLOSURE' : 'RD_CLOSURE',
+                payload: payload,
+                req_by: req.user.username
+            },
+            { autoCommit: true }
+        );
+
+        res.json({ message: `Closure request for ${type} ${depositId} has been submitted for manager approval.` });
+    } catch (err) {
+        console.error('Deposit Close Request Error:', err);
+        res.status(500).json({ message: 'Failed to submit closure request.' });
     } finally {
         if (connection) await connection.close();
     }
@@ -928,7 +1085,8 @@ router.get('/cheque/history/:bookId', verifyToken, requireRole(['CUSTOMER']), as
         const result = await connection.execute(
             `SELECT c.*, sp.reason as stop_reason
              FROM CHEQUES c
-             LEFT JOIN STOP_PAYMENT_INSTRUCTIONS sp ON c.cheque_number = sp.cheque_number AND sp.status = 'ACTIVE'
+             LEFT JOIN STOP_PAYMENT_INSTRUCTIONS sp 
+               ON (c.cheque_number = sp.cheque_number AND sp.status = 'ACTIVE')
              WHERE c.book_id = :bid
              ORDER BY c.cheque_number ASC`,
             { bid: req.params.bookId },

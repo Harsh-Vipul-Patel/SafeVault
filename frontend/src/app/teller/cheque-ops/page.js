@@ -11,7 +11,7 @@ export default function TellerChequeOps() {
     const [tab, setTab] = useState('ISSUE');
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null);
-    const [form, setForm] = useState({ accountId: '', leaves: '25', chequeNo: '', amount: '', payee: '' });
+    const [form, setForm] = useState({ accountId: '', leaves: '25', chequeNo: '', amount: '', payee: '', otpCode: '' });
 
     const handleAction = async (e) => {
         e.preventDefault();
@@ -27,10 +27,10 @@ export default function TellerChequeOps() {
                 payload = { accountId: form.accountId, leavesCount: form.leaves };
             } else if (tab === 'STOP') {
                 endpoint = '/api/teller/cheque/stop';
-                payload = { accountId: form.accountId, chequeNumber: form.chequeNo, reason: 'Stop Payment Requested by Customer' };
+                payload = { accountId: form.accountId, chequeNumber: form.chequeNo, reason: 'Stop Payment Requested by Customer', customerOtpCode: form.otpCode };
             } else if (tab === 'CLEAR') {
                 endpoint = '/api/teller/cheque/clear';
-                payload = { accountId: form.accountId, chequeNumber: form.chequeNo, amount: form.amount };
+                payload = { draweeAccountId: form.accountId, payeeAccountId: form.payee, chequeNumber: form.chequeNo, amount: form.amount };
             }
 
             const res = await fetch(`${API}${endpoint}`, {
@@ -40,9 +40,36 @@ export default function TellerChequeOps() {
             });
             const data = await res.json();
             setMsg({ type: res.ok ? 'success' : 'error', text: data.message });
-            if (res.ok) setForm({ accountId: '', leaves: '25', chequeNo: '', amount: '', payee: '' });
+            if (res.ok) setForm({ accountId: '', leaves: '25', chequeNo: '', amount: '', payee: '', otpCode: '' });
         } catch (err) {
             setMsg({ type: 'error', text: 'Action failed. Network or system error.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSendOTP = async () => {
+        if (!form.accountId || !form.chequeNo) {
+            setMsg({ type: 'error', text: 'Account ID and Cheque Number are required to request OTP.' });
+            return;
+        }
+        setLoading(true);
+        setMsg(null);
+        try {
+            const token = getToken();
+            const res = await fetch(`${API}/api/customer/auth/request-otp-stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ accountId: form.accountId, chequeNumber: form.chequeNo, reason: 'Stop Payment Requested by Customer' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setMsg({ type: 'success', text: 'OTP sent to customer email successfully.' });
+            } else {
+                setMsg({ type: 'error', text: data.message || 'Failed to send OTP.' });
+            }
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Network Error.' });
         } finally {
             setLoading(false);
         }
@@ -169,7 +196,7 @@ export default function TellerChequeOps() {
 
                             <form onSubmit={handleAction} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Account Identification</label>
+                                    <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tab === 'CLEAR' ? 'Drawee Account ID' : 'Account Identification'}</label>
                                     <input
                                         type="text"
                                         style={{
@@ -240,26 +267,95 @@ export default function TellerChequeOps() {
                                     </div>
                                 )}
 
+                                {tab === 'STOP' && (
+                                    <>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer Authorization OTP</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSendOTP}
+                                                    disabled={loading}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: '1px solid var(--gold2)',
+                                                        color: 'var(--gold2)',
+                                                        padding: '4px 12px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '10px',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        letterSpacing: '0.05em',
+                                                        textTransform: 'uppercase'
+                                                    }}
+                                                >
+                                                    Send OTP
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid var(--glass-border)',
+                                                    borderRadius: '12px',
+                                                    padding: '14px 16px',
+                                                    color: 'var(--white)',
+                                                    fontSize: '15px',
+                                                    letterSpacing: '0.2em',
+                                                    textAlign: 'center'
+                                                }}
+                                                className="focus:ring-2 focus:ring-amber-500/30 outline-none"
+                                                value={form.otpCode}
+                                                onChange={e => setForm({ ...form, otpCode: e.target.value })}
+                                                placeholder="6-DIGIT CODE"
+                                                maxLength="6"
+                                                required
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
                                 {tab === 'CLEAR' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Settlement Amount (INR)</label>
-                                        <input
-                                            type="number"
-                                            style={{
-                                                background: 'rgba(255, 255, 255, 0.04)',
-                                                border: '1px solid var(--glass-border)',
-                                                borderRadius: '12px',
-                                                padding: '14px 16px',
-                                                color: 'var(--white)',
-                                                fontSize: '15px'
-                                            }}
-                                            className="focus:ring-2 focus:ring-amber-500/30 outline-none"
-                                            value={form.amount}
-                                            onChange={e => setForm({ ...form, amount: e.target.value })}
-                                            placeholder="0.00"
-                                            required
-                                        />
-                                    </div>
+                                    <>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Settlement Amount (INR)</label>
+                                            <input
+                                                type="number"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid var(--glass-border)',
+                                                    borderRadius: '12px',
+                                                    padding: '14px 16px',
+                                                    color: 'var(--white)',
+                                                    fontSize: '15px'
+                                                }}
+                                                className="focus:ring-2 focus:ring-amber-500/30 outline-none"
+                                                value={form.amount}
+                                                onChange={e => setForm({ ...form, amount: e.target.value })}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payee Account ID</label>
+                                            <input
+                                                type="text"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid var(--glass-border)',
+                                                    borderRadius: '12px',
+                                                    padding: '14px 16px',
+                                                    color: 'var(--white)',
+                                                    fontSize: '15px'
+                                                }}
+                                                className="focus:ring-2 focus:ring-amber-500/30 outline-none"
+                                                value={form.payee}
+                                                onChange={e => setForm({ ...form, payee: e.target.value })}
+                                                placeholder="e.g. ACC-MUM-003-002"
+                                                required
+                                            />
+                                        </div>
+                                    </>
                                 )}
 
                                 <div style={{ marginTop: '16px' }}>

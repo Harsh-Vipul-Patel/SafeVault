@@ -278,6 +278,31 @@ const templates = {
         false,
         'glow-gold'
     ),
+    stopChequeOtp: (name, code, chequeNumber, reason) => emailLayout(
+        'Stop Payment Verification',
+        'Authorization required to stop cheque.',
+        `
+        <div class="amount-section">
+            <div class="stamp-container" style="top: 20px; right: 20px;">
+                <svg width="48" height="48" viewBox="0 0 52 52" style="filter: drop-shadow(0 0 12px rgba(239,68,68,0.4));">
+                    <circle cx="26" cy="26" r="23" fill="none" stroke="${colors.danger || '#EF4444'}" stroke-width="1.5" />
+                    <line x1="18" y1="26" x2="34" y2="26" stroke="${colors.danger || '#EF4444'}" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+            </div>
+            <div class="status-pill" style="background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25); color: ${colors.danger || '#EF4444'};">STOP PAYMENT</div>
+            <h2 style="color: ${colors.white}; margin: 10px 0; font-family: 'Cormorant Garamond', serif; font-size: 24px;">Stop Instalment Authorized</h2>
+            <p style="font-size: 13px; color: ${colors.cream2}; line-height: 1.6; padding: 0 20px;">Hello ${name},<br>You have requested to stop the payment for Cheque Number: <b>${chequeNumber}</b>.</p>
+            <p style="font-size: 12px; color: ${colors.muted}; padding: 0 20px; font-style: italic;">Reason: ${reason}</p>
+            <div style="background: rgba(13, 27, 42, 0.4); border: 1px solid rgba(255,255,255,0.05); padding: 35px; border-radius: 12px; margin-top: 20px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 42px; font-weight: 700; color: ${colors.gold2}; letter-spacing: 10px; margin-bottom: 10px;">${code}</div>
+                <div style="font-size: 10px; color: ${colors.muted}; text-transform: uppercase; letter-spacing: 0.1em;">SECURE OTP TOKEN</div>
+            </div>
+            <p style="font-size: 12px; color: ${colors.muted}; margin-top: 25px; padding: 0 20px;">Use this cryptographic token to authorize the stop payment. Valid for 10 minutes.</p>
+        </div>
+        `,
+        false,
+        'glow-gold'
+    ),
     transaction: (name, txnData) => {
         const type = (txnData.type || '').toLowerCase();
         const isCredit = (txnData.dir === 'CR') || type.includes('credit') || type.includes('deposit') || type.includes('received');
