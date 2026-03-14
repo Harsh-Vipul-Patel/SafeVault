@@ -27,7 +27,16 @@ router.post('/deposit', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']), 
         );
 
         // Process Notifications
-        processPendingNotifications(req.user.id, connection).catch(e => console.error('Notif Error:', e));
+        await processPendingNotifications(req.user.id, connection).catch(e => console.error('Teller Notif Error:', e));
+        
+        // Fetch customer_id to process their notifications
+        const accInfo = await connection.execute(
+            `SELECT customer_id FROM ACCOUNTS WHERE account_id = :acc_id`, { acc_id: accountId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = accInfo.rows[0]?.CUSTOMER_ID;
+        if (customerId) {
+            await processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error:', e));
+        }
         // Fetch updated balance
         const bal = await connection.execute(
             `SELECT a.balance, c.email, c.full_name FROM ACCOUNTS a
@@ -118,8 +127,8 @@ router.post('/withdraw', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']),
         );
 
         // Process Notifications
-        processPendingNotifications(req.user.id, connection).catch(e => console.error('Notif Error:', e));
-        if (customerId) processPendingNotifications(customerId, connection).catch(e => console.error('Cust Notif Error:', e));
+        await processPendingNotifications(req.user.id, connection).catch(e => console.error('Teller Notif Error:', e));
+        if (customerId) await processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error:', e));
         // Fetch updated balance
         const bal = await connection.execute(
             `SELECT a.balance, c.email, c.full_name FROM ACCOUNTS a
@@ -416,8 +425,8 @@ router.post('/transfer/external', verifyToken, requireRole(['TELLER', 'BRANCH_MA
         }
 
         await connection.execute(
-            `BEGIN sp_initiate_external_transfer(:account_id, :amount, :ifsc, :acc_no, :mode); END;`,
-            { account_id: fromAccountId, amount: Number(amount), ifsc, acc_no: toAccount, mode },
+            `BEGIN sp_initiate_external_transfer(:account_id, :amount, :ifsc, :acc_no, :mode, :initiated_by); END;`,
+            { account_id: fromAccountId, amount: Number(amount), ifsc, acc_no: toAccount, mode, initiated_by: getTellerId(req) },
             { autoCommit: true }
         );
 
@@ -461,7 +470,8 @@ router.post('/transfer/external', verifyToken, requireRole(['TELLER', 'BRANCH_MA
         res.json({ message: 'External transfer queued. Manager approval required.', ref });
     } catch (err) {
         console.error('External Transfer Error:', err);
-        res.status(500).json({ message: 'External transfer failed: ' + err.message });
+        const error = mapOracleError(err);
+        res.status(error.status).json({ message: 'External transfer failed: ' + error.message });
     } finally {
         if (connection) await connection.close();
     }
@@ -873,6 +883,20 @@ router.post('/cheque/issue', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
                 },
                 { autoCommit: true }
             );
+        }
+
+        // --- DISPATCH NOTIFICATIONS ---
+        // Fetch customer_id for the account
+        const accRes = await connection.execute(
+            `SELECT customer_id FROM ACCOUNTS WHERE account_id = :acc_id`, { acc_id: accountId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = accRes.rows[0]?.CUSTOMER_ID;
+        
+        // Process teller notifications (if any)
+        processPendingNotifications(req.user.id, connection).catch(e => console.error('Teller Notif Error:', e));
+        // Process customer notifications (this will catch the CHQ_BOOK_ISSUED alert)
+        if (customerId) {
+            processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error:', e));
         }
 
         res.json({

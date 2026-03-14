@@ -225,7 +225,9 @@ router.post('/approvals/:id/:action', verifyToken, requireRole(MANAGER_ROLES), a
             { autoCommit: true }
         );
 
-        processPendingNotifications(req.user.id, connection).catch(e => console.error(e));
+        // Managers use employee_id; the current query in dispatchEmail only joins with CUSTOMERS.
+        // For now, we'll keep it as is or update dispatchEmail to be more generic.
+        await processPendingNotifications(req.user.id, connection, false).catch(e => console.error('Manager Notif Error:', e));
 
         // Log audit entry
         await connection.execute(

@@ -3,24 +3,80 @@ const brandedTemplate = (title, content) => `
 <html>
 <head>
   <style>
-    body { font-family: 'Inter', system-ui, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 40px; }
-    .container { max-width: 600px; margin: 0 auto; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .header { font-size: 24px; font-weight: 700; color: #38bdf8; margin-bottom: 24px; text-align: center; }
-    .content { font-size: 16px; line-height: 1.6; margin-bottom: 32px; color: #cbd5e1; }
-    .footer { font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 24px; }
-    .btn { display: inline-block; padding: 12px 24px; background: #38bdf8; color: #0f172a; text-decoration: none; border-radius: 8px; font-weight: 600; }
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { 
+        font-family: 'DM Sans', system-ui, sans-serif; 
+        background-color: #0D1B2A; 
+        color: #F5F0E8; 
+        padding: 40px; 
+        margin: 0;
+    }
+    .container { 
+        max-width: 600px; 
+        margin: 0 auto; 
+        background: linear-gradient(160deg, #162032 0%, #0A1520 100%); 
+        border: 1px solid rgba(201, 150, 42, 0.2); 
+        border-radius: 16px; 
+        padding: 40px; 
+        box-shadow: 0 24px 60px rgba(0,0,0,0.6); 
+    }
+    .header { 
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 28px; 
+        font-weight: 700; 
+        color: #C9962A; 
+        margin-bottom: 32px; 
+        text-align: center; 
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    .content { 
+        font-size: 16px; 
+        line-height: 1.8; 
+        margin-bottom: 40px; 
+        color: #EDE7D9; 
+    }
+    .footer { 
+        font-size: 12px; 
+        color: #6B7E95; 
+        text-align: center; 
+        border-top: 1px solid rgba(255, 255, 255, 0.05); 
+        padding-top: 32px; 
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .btn { 
+        display: inline-block; 
+        padding: 14px 28px; 
+        background: linear-gradient(135deg, #C9962A 0%, #E8B84B 100%); 
+        color: #0D1B2A !important; 
+        text-decoration: none; 
+        border-radius: 8px; 
+        font-weight: 700; 
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .data-table {
+        width: 100%;
+        background: rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 24px 0;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">Suraksha Bank</div>
     <div class="content">
-      <h2 style="color: #f8fafc;">${title}</h2>
+      <h2 style="color: #F5F0E8; font-family: 'Cormorant Garamond', serif; font-size: 24px; margin-top: 0;">${title}</h2>
       ${content}
     </div>
     <div class="footer">
-      This is an automated notification. Please do not reply to this email.<br>
-      &copy; 2026 Suraksha Bank. Secure. Reliable. Trusted.
+      This is a secure automated notification from our Core Defense System.<br>
+      &copy; 2026 Suraksha Bank. Secure · Reliable · Trusted.
     </div>
   </div>
 </body>
@@ -32,13 +88,25 @@ module.exports = {
         'Transaction Alert',
         `<p>Dear <strong>${data.customer_name}</strong>,</p>
      <p>A ${data.txn_type} transaction occurred on your account <strong>${data.account_number}</strong>.</p>
-     <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
-       <p>Amount: <span style="color: #38bdf8; font-size: 20px;">₹${data.amount}</span></p>
-       <p>Transaction ID: ${data.txn_id}</p>
-       <p>Timestamp: ${data.txn_timestamp}</p>
-       <p>Balance After: ₹${data.balance_after}</p>
+     <div class="data-table">
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Amount</span>
+         <span style="color: #3DD68C; font-size: 20px; font-weight: 600;">₹${data.amount}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Reference</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.txn_id}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Timestamp</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.txn_timestamp}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Settled Balance</span>
+         <span style="color: #C9962A; font-weight: 600;">₹${data.balance_after}</span>
+       </div>
      </div>
-     <p>If you did not authorize this transaction, please contact us immediately.</p>`
+     <p>If you did not authorize this transaction, please contact our security team immediately.</p>`
     ),
 
     getBeneAddedEmail: (data) => brandedTemplate(
@@ -151,5 +219,61 @@ module.exports = {
      <p>Your EMI payment for Loan ${data.loan_account_id} was successful.</p>
      <p>Amount: ₹${data.emi_amount}</p>
      ${data.penalty > 0 ? `<p>Penalty Paid: ₹${data.penalty}</p>` : ''}`
+    ),
+
+    getChequeBookIssuedEmail: (data) => brandedTemplate(
+        'Cheque Book Issued',
+        `<p>Dear <strong>${data.customer_name}</strong>,</p>
+     <p>A new cheque book has been issued for your account <strong>${data.account_id}</strong>.</p>
+     <div class="data-table">
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Range</span>
+         <span style="color: #C9962A; font-weight: 600;">${data.start_num} - ${data.end_num}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Leaves</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.leaves} Leaves</span>
+       </div>
+     </div>
+     <p>Please ensure you store your cheque book securely. Our logistics partner will deliver it to your registered address within 3-5 business days.</p>`
+    ),
+
+    getExternalTxnInitiatedEmail: (data) => brandedTemplate(
+        'External Transfer Initiated',
+        `<p>Dear <strong>${data.customer_name}</strong>,</p>
+     <p>An external transfer of <span style="color: #C9962A; font-size: 20px; font-weight: 600;">₹${Number(data.amount).toLocaleString('en-IN')}</span> has been initiated from your account.</p>
+     <div class="data-table">
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Destination</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.dest_acc}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Mode</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.mode || 'NEFT/IMPS'}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Status</span>
+         <span style="color: #C9962A; font-weight: 600;">${data.status || 'PENDING APPROVAL'}</span>
+       </div>
+     </div>
+     <p style="font-size: 14px; color: #6B7E95; font-style: italic;">Note: This transaction requires manager approval for final settlement.</p>
+     <p>If you did not initiate this, please contact our Security Operations Center immediately.</p>`
+    ),
+
+    getExternalTxnApprovedEmail: (data) => brandedTemplate(
+        'External Transfer Approved',
+        `<p>Dear <strong>${data.customer_name}</strong>,</p>
+     <p>Your external transfer of <span style="color: #3DD68C; font-size: 20px; font-weight: 600;">₹${Number(data.amount).toLocaleString('en-IN')}</span> has been <strong>APPROVED</strong> and sent for settlement.</p>
+     <div class="data-table">
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Reference (UTR)</span>
+         <span style="color: #C9962A; font-weight: 600;">${data.utr}</span>
+       </div>
+       <div style="display: flex; justify-content: space-between;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Destination</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.dest_acc}</span>
+       </div>
+     </div>
+     <p>The funds should reach the destination account as per standard RBI clearing cycles. Thank you for using Safe Vault.</p>`
     )
 };

@@ -161,7 +161,7 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
         // --- Process Notifications ---
         if (req.user?.id) {
-            processPendingNotifications(req.user.id, connection).catch(err => console.error('Notification Dispatch Error:', err));
+            await processPendingNotifications(req.user.id, connection, false).catch(err => console.error('Notification Dispatch Error:', err));
         }
 
         const transferRef = 'TXN-' + Date.now().toString().slice(-8);
@@ -290,13 +290,14 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
             }
         }
         await connection.execute(
-            `BEGIN sp_initiate_external_transfer(:account_id, :amount, :ifsc, :acc_no, :mode); END;`,
+            `BEGIN sp_initiate_external_transfer(:account_id, :amount, :ifsc, :acc_no, :mode, :initiated_by); END;`,
             {
                 account_id: fromAccountId,
                 amount: Number(amount),
                 ifsc: ifsc,
                 acc_no: toAccount,
-                mode: mode
+                mode: mode,
+                initiated_by: getUserId(req)
             },
             { autoCommit: true }
         );
@@ -352,7 +353,8 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
     } catch (err) {
         console.error('External Transfer Error:', err);
-        res.status(500).json({ message: 'External transfer failed: ' + err.message });
+        const error = mapOracleError(err);
+        res.status(error.status).json({ message: 'External transfer failed: ' + error.message });
     } finally {
         if (connection) await connection.close();
     }

@@ -67,7 +67,13 @@ router.post('/application/:id/status', verifyToken, requireRole(LOAN_ROLES), asy
             { autoCommit: true }
         );
 
-        processPendingNotifications(req.user.id, connection).catch(e => console.error(e));
+        const appRes = await connection.execute(
+            `SELECT customer_id FROM LOAN_APPLICATIONS WHERE loan_app_id = HEXTORAW(:id)`, { id }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = appRes.rows[0]?.CUSTOMER_ID;
+        if (customerId) await processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error:', e));
+        
+        await processPendingNotifications(req.user.id, connection, false).catch(e => console.error('Emp Notif Error:', e));
 
         res.json({ message: `Application status updated to ${status}` });
     } catch (err) {
@@ -133,7 +139,13 @@ router.post('/disburse', verifyToken, requireRole(LOAN_ROLES), async (req, res) 
             { autoCommit: true }
         );
 
-        processPendingNotifications(req.user.id, connection).catch(e => console.error(e));
+        const appRes = await connection.execute(
+            `SELECT customer_id FROM LOAN_APPLICATIONS WHERE loan_app_id = HEXTORAW(:id)`, { id: loanAppId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = appRes.rows[0]?.CUSTOMER_ID;
+        if (customerId) await processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error:', e));
+
+        await processPendingNotifications(req.user.id, connection, false).catch(e => console.error('Emp Notif Error:', e));
 
         res.json({ message: 'Disbursement operation completed (either auto-disbursed or sent for approval).' });
     } catch (err) {
@@ -158,7 +170,13 @@ router.post('/emi/pay', verifyToken, requireRole(LOAN_ROLES), async (req, res) =
             { autoCommit: true }
         );
 
-        processPendingNotifications(req.user.id, connection).catch(e => console.error(e));
+        const emiRes = await connection.execute(
+            `SELECT la.customer_id FROM EMI_SCHEDULE es JOIN LOAN_ACCOUNTS lac ON es.loan_account_id = lac.loan_account_id JOIN LOAN_APPLICATIONS la ON lac.loan_app_id = la.loan_app_id WHERE emi_id = :id`, { id: emiId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = emiRes.rows[0]?.CUSTOMER_ID;
+        if (customerId) await processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error:', e));
+
+        await processPendingNotifications(req.user.id, connection, false).catch(e => console.error('Emp Notif Error:', e));
 
         res.json({ message: 'EMI repayment recorded successfully.' });
     } catch (err) {

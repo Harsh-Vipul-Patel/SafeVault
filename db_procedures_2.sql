@@ -1,7 +1,7 @@
 -- Suraksha Bank Safe Vault System
 -- Database Procedures Part 2: Approvals, External Transfers & Admin (Oracle 21c)
 
--- 5. Initiate External Transfer
+    -- 5. Initiate External Transfer
 CREATE OR REPLACE PROCEDURE sp_initiate_external_transfer (
     p_account_id IN VARCHAR2,
     p_amount IN NUMBER,
@@ -13,6 +13,7 @@ CREATE OR REPLACE PROCEDURE sp_initiate_external_transfer (
     v_balance NUMBER;
     v_min NUMBER;
     v_status VARCHAR2(10);
+    v_fee NUMBER;
 BEGIN
     SELECT balance, minimum_balance, status INTO v_balance, v_min, v_status
     FROM ACCOUNTS WHERE account_id = p_account_id FOR UPDATE;
@@ -21,8 +22,12 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20003, 'Account is not ACTIVE.');
     END IF;
 
-    IF v_balance - p_amount < v_min THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Insufficient funds.');
+    -- Calculate Fee First
+    v_fee := fn_calculate_fee(p_mode, p_amount);
+
+    -- Check balance including transfer amount and fee
+    IF v_balance - p_amount - v_fee < v_min THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Insufficient funds (Amount + Fee: ' || (p_amount + v_fee) || ').');
     END IF;
 
     -- Escrow Funds (Deduct immediately)
@@ -30,6 +35,13 @@ BEGIN
 
     INSERT INTO TRANSACTIONS (account_id, transaction_type, amount, balance_after, initiated_by, status)
     VALUES (p_account_id, 'EXTERNAL_DEBIT', p_amount, v_balance - p_amount, p_initiated_by, 'PENDING');
+
+    -- Fee Deduction
+    IF v_fee > 0 THEN
+        UPDATE ACCOUNTS SET balance = balance - v_fee WHERE account_id = p_account_id;
+        INSERT INTO TRANSACTIONS (account_id, transaction_type, amount, balance_after, initiated_by, description)
+        VALUES (p_account_id, 'FEE_DEBIT', v_fee, v_balance - p_amount - v_fee, 'SYSTEM', p_mode || ' Transfer Fee');
+    END IF;
 
     INSERT INTO PENDING_EXTERNAL_TRANSFERS (source_account_id, amount, destination_ifsc, destination_account, transfer_mode, initiated_by)
     VALUES (p_account_id, p_amount, p_ifsc, p_acc_no, p_mode, p_initiated_by);

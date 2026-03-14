@@ -33,7 +33,7 @@ const sendEmail = async (to, subject, content, attachments = [], isHtml = false)
         const info = await resend.emails.send(mailOptions);
 
         console.log('--- Email Status ---');
-        console.log('Message sent:', info.id);
+        console.log('Message sent:', info.id || info.data?.id || 'Success');
         console.log('--------------------');
 
         return info;

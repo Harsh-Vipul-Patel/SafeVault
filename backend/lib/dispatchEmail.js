@@ -18,6 +18,9 @@ const templateMap = {
     'FD_CLOSED': emailService.getFDClosedEmail,
     'LOAN_DISBURSED': emailService.getLoanDisbursedEmail,
     'EMI_PAID': emailService.getEMIPaidEmail,
+    'CHQ_BOOK_ISSUED': emailService.getChequeBookIssuedEmail,
+    'EXT_TXN_INITIATED': emailService.getExternalTxnInitiatedEmail,
+    'EXT_TXN_APPROVED': emailService.getExternalTxnApprovedEmail,
 };
 
 async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, connection) {
@@ -72,19 +75,27 @@ async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, 
 /**
  * Polls and processes pending notifications for a specific user
  */
-async function processPendingNotifications(userId, connection) {
+async function processPendingNotifications(id, connection, isUserId = true) {
+    const whereClause = isUserId ? `n.user_id = :id` : `n.customer_id = :id`;
     const result = await connection.execute(
         `SELECT n.notif_id, n.trigger_event, n.message_clob, c.email
      FROM NOTIFICATION_LOG n
      JOIN CUSTOMERS c ON n.customer_id = c.customer_id
-     WHERE n.user_id = :userId AND n.status = 'QUEUED'`,
-        [userId]
+     WHERE ${whereClause} AND n.status = 'PENDING'`,
+        [id],
+        { 
+            outFormat: oracledb.OUT_FORMAT_OBJECT,
+            fetchInfo: { "MESSAGE_CLOB": { type: oracledb.STRING } } 
+        }
     );
 
     for (const row of result.rows) {
-        const [notifId, event, payload, email] = row;
-        // Non-blocking dispatch
-        dispatchEmail(notifId, event, payload, email, connection);
+        const { NOTIF_ID, TRIGGER_EVENT, MESSAGE_CLOB, EMAIL } = row;
+        // Block and wait for dispatch to avoid rate limits and connection issues
+        await dispatchEmail(NOTIF_ID, TRIGGER_EVENT, MESSAGE_CLOB, EMAIL, connection).catch(e => console.error(`Dispatch failed for notif ${NOTIF_ID}:`, e));
+        
+        // Small delay to respect Resend rate limits (2/sec)
+        await new Promise(resolve => setTimeout(resolve, 550));
     }
 }
 

@@ -144,6 +144,18 @@ BEGIN
     INSERT INTO TRANSACTIONS (account_id, transaction_type, amount, balance_after, initiated_by)
     VALUES (p_account_id, 'CREDIT', p_amount, v_balance + p_amount, p_teller_id);
     
+    -- Fee Deduction
+    DECLARE
+        v_fee NUMBER;
+    BEGIN
+        v_fee := fn_calculate_fee('CASH_DEP', p_amount);
+        IF v_fee > 0 THEN
+            UPDATE ACCOUNTS SET balance = balance - v_fee WHERE account_id = p_account_id;
+            INSERT INTO TRANSACTIONS (account_id, transaction_type, amount, balance_after, initiated_by, description)
+            VALUES (p_account_id, 'FEE_DEBIT', v_fee, v_balance + p_amount - v_fee, 'SYSTEM', 'Cash Deposit Fee');
+        END IF;
+    END;
+    
     -- Notification
     DECLARE
         v_cust_name VARCHAR2(100);
@@ -204,6 +216,18 @@ BEGIN
 
     INSERT INTO TRANSACTIONS (account_id, transaction_type, amount, balance_after, initiated_by)
     VALUES (p_account_id, 'DEBIT', p_amount, v_balance - p_amount, p_teller_id);
+    
+    -- Fee Deduction
+    DECLARE
+        v_fee NUMBER;
+    BEGIN
+        v_fee := fn_calculate_fee('CASH_WTH', p_amount);
+        IF v_fee > 0 THEN
+            UPDATE ACCOUNTS SET balance = balance - v_fee WHERE account_id = p_account_id;
+            INSERT INTO TRANSACTIONS (account_id, transaction_type, amount, balance_after, initiated_by, description)
+            VALUES (p_account_id, 'FEE_DEBIT', v_fee, v_balance - p_amount - v_fee, 'SYSTEM', 'Cash Withdrawal Fee');
+        END IF;
+    END;
     
     -- Notification
     DECLARE

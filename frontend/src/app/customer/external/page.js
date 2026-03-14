@@ -60,6 +60,13 @@ export default function ExternalTransfer() {
       return;
     }
 
+    // IFSC Validation: 11 characters, 5th must be '0'
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!ifscRegex.test(ifsc)) {
+      setMessage({ type: 'error', text: 'Invalid IFSC format. It must be 11 characters, and the 5th character must be zero (0).' });
+      return;
+    }
+
     // Before actual transfer, request OTP
     setLoading(true); setMessage(null);
     try {

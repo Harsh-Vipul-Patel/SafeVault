@@ -2,20 +2,18 @@
 
 -- 1. FEE_SCHEDULE Table (Module 7 base)
 CREATE TABLE FEE_SCHEDULE (
-  fee_id           NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  fee_type         VARCHAR2(40) NOT NULL UNIQUE,
-  account_type_id  NUMBER REFERENCES ACCOUNT_TYPES(type_id),
-  amount           NUMBER(15,2),
-  percentage_rate  NUMBER(5,3),
+  fee_id           VARCHAR2(40) PRIMARY KEY,
+  fee_amount       NUMBER(15,2) DEFAULT 0,
+  is_percentage    CHAR(1) DEFAULT '0' CHECK (is_percentage IN ('0','1')),
+  min_balance_threshold NUMBER(15,2) DEFAULT 0,
   description      VARCHAR2(200),
   effective_from   DATE DEFAULT SYSDATE NOT NULL,
-  created_by       RAW(16) REFERENCES USERS(user_id),
-  created_at       TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL
+  updated_at       TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL
 );
 
 -- Seed data for Deposits
-INSERT INTO FEE_SCHEDULE (fee_type, percentage_rate, description) 
-VALUES ('FD_PREMATURE_CLOSURE', 1.0, 'Penalty on FD principal for premature closure');
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('FD_PREMATURE_CLOSURE', 1.0, '1', 'Penalty on FD principal for premature closure');
 
 -- 2. Deposit Tables
 CREATE TABLE FD_ACCOUNTS (

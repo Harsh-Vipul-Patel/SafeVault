@@ -90,22 +90,23 @@ export default function SettleTransfers() {
                         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Loading from Oracle...</div>
                     ) : transfers.length === 0 ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>No {filter.toLowerCase()} transfers.</div>
-                    ) : transfers.map((t) => {
-                        const tid = t.TRANSFER_ID ? (typeof t.TRANSFER_ID === 'string' ? t.TRANSFER_ID.substring(0, 12) : Buffer.from(t.TRANSFER_ID).toString('hex').substring(0, 12)) : 'N/A';
+                    ) : transfers.map((t, i) => {
+                        const tIdStr = t.TRANSFER_ID ? (typeof t.TRANSFER_ID === 'string' ? t.TRANSFER_ID : Buffer.from(t.TRANSFER_ID).toString('hex')) : `temp-${i}`;
+                        const tid = tIdStr.startsWith('temp-') ? 'N/A' : tIdStr.substring(0, 12);
                         return (
-                            <div className={styles.tdRow} key={t.TRANSFER_ID} style={{ gridTemplateColumns: '1fr 1.5fr 1fr 1fr 1fr 1.2fr' }}>
+                            <div className={styles.tdRow} key={tIdStr} style={{ gridTemplateColumns: '1fr 1.5fr 1fr 1fr 1fr 1.2fr' }}>
                                 <div className={styles.idMono}>{tid.toUpperCase()}</div>
                                 <div>{t.DESTINATION_NAME || t.DESTINATION_IFSC} ({t.DESTINATION_ACCOUNT})</div>
                                 <div className={styles.idMono}>{t.TRANSFER_MODE}</div>
                                 <div className={styles.tdAmount}>₹ {Number(t.AMOUNT).toLocaleString('en-IN')}</div>
                                 <div style={{ fontSize: '12px' }}>{t.SOURCE_ACCOUNT_ID}</div>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                    {actionLoading === t.TRANSFER_ID ? (
+                                    {actionLoading === tIdStr ? (
                                         <span style={{ fontSize: '12px', color: 'var(--gold2)' }}>Processing...</span>
                                     ) : filter === 'PENDING' ? (
                                         <>
-                                            <button className={styles.btnApprove} style={{ padding: '6px 12px' }} onClick={() => handleAction(t.TRANSFER_ID, 'settle')}>Settle</button>
-                                            <button className={styles.btnReject} style={{ padding: '6px 12px' }} onClick={() => handleAction(t.TRANSFER_ID, 'reject')}>Reject</button>
+                                            <button className={styles.btnApprove} style={{ padding: '6px 12px' }} onClick={() => handleAction(tIdStr, 'settle')}>Settle</button>
+                                            <button className={styles.btnReject} style={{ padding: '6px 12px' }} onClick={() => handleAction(tIdStr, 'reject')}>Reject</button>
                                         </>
                                     ) : (
                                         <span style={{ fontSize: '12px', color: filter === 'SETTLED' ? '#3DD68C' : '#FF4A4A', fontWeight: 600 }}>{t.STATUS}</span>

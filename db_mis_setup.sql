@@ -1,11 +1,27 @@
 -- Suraksha Bank — MIS Dashboard & Fee Engine (Oracle 21c)
 
 -- 1. Additional Fee Seeds
-INSERT INTO FEE_SCHEDULE (fee_type, amount, description) 
-VALUES ('MIN_BALANCE_PENALTY', 500.0, 'Penalty for falling below minimum balance');
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('MIN_BALANCE_PENALTY', 500.0, '0', 'Penalty for falling below minimum balance');
 
-INSERT INTO FEE_SCHEDULE (fee_type, amount, description) 
-VALUES ('CHEQUE_BOOK_ISSUE', 100.0, 'Fee for issuing a new 25-leaf cheque book');
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('CHEQUE_BOOK_ISSUE', 100.0, '0', 'Fee for issuing a new 25-leaf cheque book');
+
+-- New Transaction Fees
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('IMPS', 5.0, '0', 'Fixed fee for IMPS transfer');
+
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('NEFT', 2.5, '0', 'Fixed fee for NEFT transfer');
+
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('RTGS', 0.0, '0', 'Fixed fee for RTGS transfer');
+
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('CASH_DEP', 10.0, '0', 'Cash deposit fee');
+
+INSERT INTO FEE_SCHEDULE (fee_id, fee_amount, is_percentage, description) 
+VALUES ('CASH_WTH', 10.0, '0', 'Cash withdrawal fee');
 
 -- 2. MIS Views
 BEGIN

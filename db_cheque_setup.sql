@@ -133,13 +133,35 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20037, 'Continuity Breach: Range overlaps with an existing book. System configuration requires review.');
     END IF;
 
-    -- 5. Record Book
     INSERT INTO CHEQUE_BOOKS (
         account_id, start_cheque_number, end_cheque_number, leaves_count, issued_by
     ) VALUES (
         p_account_id, LPAD(v_start_num, 6, '0'), LPAD(v_end_num, 6, '0'),
         p_leaves_count, p_teller_id
     ) RETURNING book_id INTO v_book_id;
+
+    -- 6. Notification
+    DECLARE
+        v_cust_name VARCHAR2(100);
+        v_cust_id VARCHAR2(20);
+        v_user_id RAW(16);
+    BEGIN
+        SELECT c.full_name, c.customer_id, c.user_id 
+        INTO v_cust_name, v_cust_id, v_user_id
+        FROM CUSTOMERS c JOIN ACCOUNTS a ON c.customer_id = a.customer_id 
+        WHERE a.account_id = p_account_id;
+
+        INSERT INTO NOTIFICATION_LOG (customer_id, user_id, trigger_event, channel, message_clob)
+        VALUES (v_cust_id, v_user_id, 'CHQ_BOOK_ISSUED', 'EMAIL', 
+            JSON_OBJECT(
+                'customer_name' VALUE v_cust_name,
+                'account_id' VALUE p_account_id,
+                'start_num' VALUE LPAD(v_start_num, 6, '0'),
+                'end_num' VALUE LPAD(v_end_num, 6, '0'),
+                'leaves' VALUE p_leaves_count
+            )
+        );
+    END;
 
     COMMIT;
 END;
