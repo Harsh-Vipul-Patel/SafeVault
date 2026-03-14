@@ -62,7 +62,7 @@ PROMPT Account types inserted.
 
 -- 5. CUSTOMERS
 INSERT INTO CUSTOMERS (customer_id, full_name, date_of_birth, pan_number, email, phone, kyc_status, user_id)
-SELECT 'CUST-001', 'Ravi Verma', DATE '1988-04-15', 'ABCPV1234A', 'kingharsh272@gmail.com', '9876543210', 'VERIFIED', user_id
+SELECT 'CUST-001', 'Ravi Verma', DATE '1988-04-15', 'ABCPV1234A', 'kingharsh271@gmail.com', '9876543210', 'VERIFIED', user_id
 FROM USERS WHERE username = 'ravi.verma';
 
 INSERT INTO CUSTOMERS (customer_id, full_name, date_of_birth, pan_number, email, phone, kyc_status, user_id)

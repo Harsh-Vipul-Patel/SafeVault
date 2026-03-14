@@ -1,0 +1,1 @@
+NJS-518: cannot connect to Oracle Database. Service "xe" is not registered with the listener at host 127.0.0.1 port 1521. (CONNECTION_ID=9Dxnxb0F0TlGaYqE1xn9jQ==)

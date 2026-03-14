@@ -1,34 +1,47 @@
-const oracledb = require('oracledb');
+const { Pool } = require('pg');
 
-oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
-oracledb.autoCommit = true;
+let pool;
 
 async function initializeDBPool() {
     try {
-        console.log('Initializing Oracle DB connection pool...');
-        await oracledb.createPool({
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            connectString: process.env.DB_CONNECTION_STRING,
-            poolMin: 2,
-            poolMax: 10,
-            poolIncrement: 1
+        console.log('Initializing PostgreSQL connection pool...');
+        pool = new Pool({
+            connectionString: process.env.DB_CONNECTION_STRING,
+            max: 10,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
         });
-        console.log('Oracle DB connection pool started.');
+        
+        // Test connection
+        const client = await pool.connect();
+        console.log('PostgreSQL connection pool started.');
+        client.release();
     } catch (err) {
-        console.error('init() error: ', err.message);
+        console.error('initDB error: ', err.message);
         throw err;
     }
 }
 
 async function closeDBPool() {
-    console.log('Closing Oracle DB connection pool...');
+    console.log('Closing PostgreSQL connection pool...');
     try {
-        await oracledb.getPool().close(10);
-        console.log('Oracle DB connection pool closed.');
+        if (pool) {
+            await pool.end();
+            console.log('PostgreSQL connection pool closed.');
+        }
     } catch (err) {
-        console.error('close() error: ', err.message);
+        console.error('closeDB error: ', err.message);
     }
 }
 
-module.exports = { initializeDBPool, closeDBPool };
+// Helper to get a client from the pool (for transactions)
+async function getClient() {
+    return await pool.connect();
+}
+
+// Helper for simple queries
+async function query(text, params) {
+    return await pool.query(text, params);
+}
+
+module.exports = { initializeDBPool, closeDBPool, getClient, query };

@@ -1,0 +1,27 @@
+﻿git : error: The 
+following untracked 
+working tree files 
+would be overwritten 
+by merge:
+At line:1 char:1
++ git pull 2>&1 | 
+Out-File -FilePath 
+pull_output.txt 
+-Encoding utf8; Ge ...
++ ~~~~~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (error: The   
+  foll...itten by     
+merge::String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+	backend/lib/dispatchE
+mail.js
+Please move or remove 
+them before you merge.
+Updating a097064..9f69180
+Aborting

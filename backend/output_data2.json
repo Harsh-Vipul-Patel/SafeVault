@@ -1,0 +1,325 @@
+--- USERS ---
+[
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        46,
+        17,
+        21,
+        175,
+        24,
+        77,
+        70,
+        38,
+        171,
+        81,
+        101,
+        114,
+        58,
+        128,
+        130,
+        233
+      ]
+    },
+    "USERNAME": "a.krishnan",
+    "USER_TYPE": "EMPLOYEE"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        7,
+        199,
+        100,
+        223,
+        75,
+        185,
+        66,
+        49,
+        171,
+        241,
+        96,
+        51,
+        75,
+        246,
+        114,
+        227
+      ]
+    },
+    "USERNAME": "amit.kumar",
+    "USER_TYPE": "CUSTOMER"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        31,
+        36,
+        68,
+        188,
+        32,
+        181,
+        64,
+        239,
+        139,
+        60,
+        165,
+        210,
+        184,
+        134,
+        19,
+        92
+      ]
+    },
+    "USERNAME": "priya.desai",
+    "USER_TYPE": "EMPLOYEE"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        237,
+        137,
+        133,
+        94,
+        152,
+        209,
+        79,
+        237,
+        187,
+        226,
+        58,
+        7,
+        217,
+        95,
+        148,
+        138
+      ]
+    },
+    "USERNAME": "ravi.verma",
+    "USER_TYPE": "CUSTOMER"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        236,
+        86,
+        227,
+        204,
+        61,
+        48,
+        73,
+        174,
+        183,
+        170,
+        53,
+        158,
+        55,
+        94,
+        208,
+        240
+      ]
+    },
+    "USERNAME": "rk.sharma",
+    "USER_TYPE": "EMPLOYEE"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        171,
+        144,
+        95,
+        163,
+        246,
+        224,
+        69,
+        208,
+        138,
+        157,
+        36,
+        1,
+        209,
+        204,
+        104,
+        75
+      ]
+    },
+    "USERNAME": "sunita.rao",
+    "USER_TYPE": "CUSTOMER"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        143,
+        192,
+        104,
+        145,
+        43,
+        152,
+        78,
+        23,
+        186,
+        219,
+        11,
+        123,
+        129,
+        182,
+        206,
+        182
+      ]
+    },
+    "USERNAME": "sys.root",
+    "USER_TYPE": "EMPLOYEE"
+  },
+  {
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        219,
+        224,
+        134,
+        17,
+        225,
+        201,
+        72,
+        238,
+        153,
+        103,
+        139,
+        242,
+        199,
+        211,
+        95,
+        114
+      ]
+    },
+    "USERNAME": "vikram.mehta",
+    "USER_TYPE": "CUSTOMER"
+  }
+]
+
+--- CUSTOMERS ---
+[
+  {
+    "CUSTOMER_ID": "CUST-001",
+    "FULL_NAME": "Ravi Verma",
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        237,
+        137,
+        133,
+        94,
+        152,
+        209,
+        79,
+        237,
+        187,
+        226,
+        58,
+        7,
+        217,
+        95,
+        148,
+        138
+      ]
+    }
+  },
+  {
+    "CUSTOMER_ID": "CUST-002",
+    "FULL_NAME": "Amit Kumar",
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        7,
+        199,
+        100,
+        223,
+        75,
+        185,
+        66,
+        49,
+        171,
+        241,
+        96,
+        51,
+        75,
+        246,
+        114,
+        227
+      ]
+    }
+  },
+  {
+    "CUSTOMER_ID": "CUST-003",
+    "FULL_NAME": "Sunita Rao",
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        171,
+        144,
+        95,
+        163,
+        246,
+        224,
+        69,
+        208,
+        138,
+        157,
+        36,
+        1,
+        209,
+        204,
+        104,
+        75
+      ]
+    }
+  },
+  {
+    "CUSTOMER_ID": "CUST-004",
+    "FULL_NAME": "Vikram Mehta",
+    "USER_ID": {
+      "type": "Buffer",
+      "data": [
+        219,
+        224,
+        134,
+        17,
+        225,
+        201,
+        72,
+        238,
+        153,
+        103,
+        139,
+        242,
+        199,
+        211,
+        95,
+        114
+      ]
+    }
+  }
+]
+
+--- ACCOUNTS ---
+[
+  {
+    "ACCOUNT_ID": "ACC-MUM-003-1029",
+    "ACCOUNT_NUMBER": "004000020000002",
+    "CUSTOMER_ID": "CUST-001",
+    "ACCOUNT_TYPE_ID": 2,
+    "STATUS": "ACTIVE"
+  },
+  {
+    "ACCOUNT_ID": "ACC-MUM-003-8821",
+    "ACCOUNT_NUMBER": "004000010000001",
+    "CUSTOMER_ID": "CUST-001",
+    "ACCOUNT_TYPE_ID": 1,
+    "STATUS": "ACTIVE"
+  }
+]
