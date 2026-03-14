@@ -33,12 +33,18 @@ const sendEmail = async (to, subject, content, attachments = [], isHtml = false)
         const info = await resend.emails.send(mailOptions);
 
         console.log('--- Email Status ---');
-        console.log('Message sent:', info.id);
+        if (info.error) {
+            console.error('Resend API Error:', info.error.message);
+            console.log('--------------------');
+            throw new Error(info.error.message);
+        }
+
+        console.log('Message sent successfully. ID:', info.data?.id);
         console.log('--------------------');
 
         return info;
     } catch (error) {
-        console.error('Error sending email via Resend:', error);
+        console.error('Error sending email via Resend:', error.message || error);
         throw error;
     }
 };

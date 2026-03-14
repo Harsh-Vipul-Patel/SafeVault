@@ -1,6 +1,6 @@
 const { resend } = require('./mailer');
 const emailService = require('../services/emailService');
-const oracledb = require('oracledb');
+const { query } = require('../db');
 
 const templateMap = {
     'TXN_ALERT': emailService.getTransactionEmail,
@@ -20,7 +20,7 @@ const templateMap = {
     'EMI_PAID': emailService.getEMIPaidEmail,
 };
 
-async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, connection) {
+async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail) {
     try {
         const payload = JSON.parse(payloadJson);
         const getTemplate = templateMap[triggerEvent];
@@ -43,26 +43,24 @@ async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, 
 
         if (error) {
             console.error(`Resend Error for notif ${notifId}:`, error);
-            await connection.execute(
-                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notif_id = :id`,
+            await query(
+                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notification_id = $1`,
                 [notifId]
             );
         } else {
-            await connection.execute(
-                `UPDATE NOTIFICATION_LOG SET status = 'SENT', resend_message_id = :msgId WHERE notif_id = :id`,
+            await query(
+                `UPDATE NOTIFICATION_LOG SET status = 'SENT', resend_message_id = $1 WHERE notification_id = $2`,
                 [data.id, notifId]
             );
         }
-        await connection.commit();
 
     } catch (err) {
         console.error(`Internal Dispatch Error for notif ${notifId}:`, err);
         try {
-            await connection.execute(
-                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notif_id = :id`,
+            await query(
+                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notification_id = $1`,
                 [notifId]
             );
-            await connection.commit();
         } catch (dbErr) {
             console.error('Final DB Error in dispatchEmail:', dbErr);
         }
@@ -72,19 +70,23 @@ async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, 
 /**
  * Polls and processes pending notifications for a specific user
  */
-async function processPendingNotifications(userId, connection) {
-    const result = await connection.execute(
-        `SELECT n.notif_id, n.trigger_event, n.message_clob, c.email
-     FROM NOTIFICATION_LOG n
-     JOIN CUSTOMERS c ON n.customer_id = c.customer_id
-     WHERE n.user_id = :userId AND n.status = 'QUEUED'`,
-        [userId]
-    );
+async function processPendingNotifications(userId) {
+    try {
+        const result = await query(
+            `SELECT n.notification_id, n.trigger_event, n.message_clob, c.email
+             FROM NOTIFICATION_LOG n
+             JOIN CUSTOMERS c ON n.customer_id = c.customer_id
+             WHERE (n.user_id = $1 OR c.customer_id = $1) AND n.status = 'QUEUED'`,
+            [userId]
+        );
 
-    for (const row of result.rows) {
-        const [notifId, event, payload, email] = row;
-        // Non-blocking dispatch
-        dispatchEmail(notifId, event, payload, email, connection);
+        for (const row of result.rows) {
+            const { notification_id, trigger_event, message_clob, email } = row;
+            // Non-blocking dispatch
+            dispatchEmail(notification_id, trigger_event, message_clob, email);
+        }
+    } catch (err) {
+        console.error('processPendingNotifications error:', err);
     }
 }
 
