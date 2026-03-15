@@ -1102,6 +1102,18 @@ router.post('/service-requests/resolve', verifyToken, requireRole(['TELLER', 'BR
             { id: Number(srId), status, notes, teller: getTellerId(req) },
             { autoCommit: true }
         );
+
+        // Fetch customer_id to process notifications
+        const srRes = await connection.execute(
+            `SELECT customer_id FROM SERVICE_REQUESTS WHERE sr_id = :id`,
+            { id: Number(srId) },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const customerId = srRes.rows[0]?.CUSTOMER_ID;
+        if (customerId) {
+            await processPendingNotifications(customerId, connection, false).catch(e => console.error('Notification Dispatch Error for SR_RESOLVED:', e));
+        }
+
         res.json({ message: 'Service request resolved successfully.' });
     } catch (err) {
         const error = mapOracleError(err);

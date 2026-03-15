@@ -1,7 +1,8 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
-const { initializeDBPool, closeDBPool, query } = require('./db');
+const oracledb = require('oracledb');
+const { initializeDBPool, closeDBPool } = require('./db');
 const authRoutes = require('./routes/authRoutes');
 const tellerRoutes = require('./routes/tellerRoutes');
 const customerRoutes = require('./routes/customerRoutes');
@@ -29,7 +30,8 @@ app.use('/api/otp', otpRoutes);
 // Basic health check
 app.get('/api/health', async (req, res) => {
     try {
-        await query('SELECT 1');
+        const connection = await oracledb.getConnection();
+        await connection.close();
         res.json({ status: 'ok', database: 'connected' });
     } catch (err) {
         console.error('Health check DB error:', err);
@@ -41,12 +43,13 @@ app.get('/api/health', async (req, res) => {
 async function startServer() {
     try {
         await initializeDBPool();
-        console.log('Connected to PostgreSQL successfully.');
+        console.log('Connected to Oracle DB successfully.');
     } catch (err) {
-        console.error('Failed to connect to PostgreSQL. Running in MOCK mode Data might not persist.', err.message);
+        console.error('Failed to connect to Oracle DB. Running in MOCK mode Data might not persist.', err.message);
     }
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`Server also listening on http://127.0.0.1:${PORT} (IPv4)`);
     });
 }
 

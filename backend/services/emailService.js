@@ -97,6 +97,11 @@ module.exports = {
          <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Reference</span>
          <span style="color: #F5F0E8; font-weight: 500;">${data.txn_id}</span>
        </div>
+       ${data.method ? `
+       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+         <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Method</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.method}</span>
+       </div>` : ''}
        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
          <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Timestamp</span>
          <span style="color: #F5F0E8; font-weight: 500;">${data.txn_timestamp}</span>
@@ -249,14 +254,14 @@ module.exports = {
        </div>
        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
          <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Mode</span>
-         <span style="color: #F5F0E8; font-weight: 500;">${data.mode || 'NEFT/IMPS'}</span>
+         <span style="color: #F5F0E8; font-weight: 500;">${data.method || data.mode || 'NEFT/IMPS'}</span>
        </div>
        <div style="display: flex; justify-content: space-between;">
          <span style="color: #6B7E95; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;">Status</span>
          <span style="color: #C9962A; font-weight: 600;">${data.status || 'PENDING APPROVAL'}</span>
        </div>
      </div>
-     <p style="font-size: 14px; color: #6B7E95; font-style: italic;">Note: This transaction requires manager approval for final settlement.</p>
+     <p style="font-size: 14px; color: #6B7E95; font-style: italic;">Note: This transaction has been sent to the manager and is waiting for approval.</p>
      <p>If you did not initiate this, please contact our Security Operations Center immediately.</p>`
     ),
 

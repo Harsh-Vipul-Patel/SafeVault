@@ -30,9 +30,9 @@ const mapOracleError = (err) => {
         return { status: 400, message: ORACLE_ERRORS[errorNum] };
     }
 
-    // Custom mapping for specific constraint violations
-    if (err.message && err.message.includes('SYS_C009616')) {
-        return { status: 400, message: 'Invalid IFSC Code format. The 5th character must be zero (0).' };
+    // Custom mapping for specific security violations
+    if (errorNum == 20032 || errorNum == 20040) {
+        return { status: 403, message: ORACLE_ERRORS[errorNum] };
     }
 
     return { status: 500, message: err.message };

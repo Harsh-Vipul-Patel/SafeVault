@@ -6,14 +6,14 @@ import { Shield, Lock, User, ChevronRight, Info, Eye, EyeOff } from 'lucide-reac
 import styles from './login.module.css';
 
 const TEST_CREDENTIALS = [
-    { label: 'Customer 1', username: 'ravi.verma', password: 'password', role: 'CUSTOMER', tag: '₹10.2L' },
-    { label: 'Customer 2', username: 'amit.kumar', password: 'password', role: 'CUSTOMER', tag: '₹1.24L' },
-    { label: 'Customer 3', username: 'sunita.rao', password: 'password', role: 'CUSTOMER', tag: '₹75K' },
-    { label: 'Customer 4', username: 'vikram.mehta', password: 'password', role: 'CUSTOMER', tag: '₹5.4L' },
-    { label: 'Teller', username: 'priya.desai', password: 'password', role: 'TELLER', tag: 'Staff' },
-    { label: 'Branch Mgr', username: 'rk.sharma', password: 'password', role: 'BRANCH_MANAGER', tag: 'Staff' },
-    { label: 'Loan Mgr', username: 'a.krishnan', password: 'password', role: 'LOAN_MANAGER', tag: 'Staff' },
-    { label: 'Admin', username: 'sys.root', password: 'password', role: 'SYSTEM_ADMIN', tag: 'Admin' },
+    { label: 'Customer 1', username: 'ravi.verma', password: 'password123', role: 'CUSTOMER', tag: '₹10.2L' },
+    { label: 'Customer 2', username: 'amit.kumar', password: 'password123', role: 'CUSTOMER', tag: '₹1.24L' },
+    { label: 'Customer 3', username: 'sunita.rao', password: 'password123', role: 'CUSTOMER', tag: '₹75K' },
+    { label: 'Customer 4', username: 'vikram.mehta', password: 'password123', role: 'CUSTOMER', tag: '₹5.4L' },
+    { label: 'Teller', username: 'priya.desai', password: 'password123', role: 'TELLER', tag: 'Staff' },
+    { label: 'Branch Mgr', username: 'rk.sharma', password: 'password123', role: 'BRANCH_MANAGER', tag: 'Staff' },
+    { label: 'Loan Mgr', username: 'a.krishnan', password: 'password123', role: 'LOAN_MANAGER', tag: 'Staff' },
+    { label: 'Admin', username: 'sys.root', password: 'password123', role: 'SYSTEM_ADMIN', tag: 'Admin' },
 ];
 
 export default function LoginPage() {

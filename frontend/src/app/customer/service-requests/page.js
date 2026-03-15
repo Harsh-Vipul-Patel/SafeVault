@@ -10,7 +10,7 @@ export default function CustomerServiceRequests() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
-    const [form, setForm] = useState({ type: 'GENERAL', description: '' });
+    const [form, setForm] = useState({ type: 'OTHER', description: '' });
     const [msg, setMsg] = useState(null);
 
     const fetchSRs = async () => {
@@ -46,7 +46,7 @@ export default function CustomerServiceRequests() {
             if (res.ok) {
                 setMsg({ type: 'success', text: 'Service Request captured. Ref ID: ' + data.requestId });
                 setShowAdd(false);
-                setForm({ type: 'GENERAL', description: '' });
+                setForm({ type: 'OTHER', description: '' });
                 fetchSRs();
             } else {
                 setMsg({ type: 'error', text: data.message });
@@ -74,11 +74,12 @@ export default function CustomerServiceRequests() {
                         <div className={styles.inputGroup}>
                             <label className={styles.label}>Request Type</label>
                             <select className={styles.input} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                                <option value="GENERAL">General Query</option>
-                                <option value="CHEQUE_BOOK">Cheque Book Correction</option>
+                                <option value="OTHER">General Query</option>
+                                <option value="CHEQUE_BOOK_REQUEST">Cheque Book Request / Correction</option>
                                 <option value="ADDRESS_CHANGE">Address Change</option>
-                                <option value="FD_RENEWAL">FD Auto-Renewal Change</option>
-                                <option value="COMPLAINT">Lodge a Complaint</option>
+                                <option value="MOBILE_UPDATE">Mobile Number Update</option>
+                                <option value="EMAIL_UPDATE">Email Update</option>
+                                <option value="ACCOUNT_UPGRADE">Account Upgrade</option>
                             </select>
                         </div>
                         <div className={styles.inputGroup} style={{ marginTop: '16px' }}>
@@ -113,8 +114,8 @@ export default function CustomerServiceRequests() {
                         {requests.length === 0 ? (
                             <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No active service requests.</td></tr>
                         ) : requests.map((sr, i) => (
-                            <tr key={sr.REQUEST_ID || i}>
-                                <td style={{ fontFamily: 'DM Mono' }}>{sr.REQUEST_ID}</td>
+                            <tr key={sr.SR_ID || i}>
+                                <td style={{ fontFamily: 'DM Mono' }}>{sr.SR_ID}</td>
                                 <td>{sr.REQUEST_TYPE}</td>
                                 <td title={sr.DESCRIPTION}>{sr.DESCRIPTION?.substring(0, 40)}...</td>
                                 <td>{new Date(sr.CREATED_AT).toLocaleDateString()}</td>

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { query } = require('../db');
+const oracledb = require('oracledb');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_here_change_in_production';
 
@@ -24,17 +24,20 @@ const verifyToken = async (req, res, next) => {
         }
 
         // Verify session_token in database
+        let connection;
         try {
-            const result = await query(
-                `SELECT session_token FROM USERS WHERE LOWER(username) = LOWER($1)`,
-                [decoded.username]
+            connection = await oracledb.getConnection();
+            const result = await connection.execute(
+                `SELECT session_token FROM USERS WHERE LOWER(username) = LOWER(:uname)`,
+                { uname: decoded.username },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
             );
 
             if (result.rows.length === 0) {
                 return res.status(401).json({ message: 'User deleted or not found' });
             }
 
-            const activeSessionToken = result.rows[0].session_token;
+            const activeSessionToken = result.rows[0].SESSION_TOKEN;
             if (activeSessionToken !== decoded.session_token) {
                 // Session was invalidated by another login
                 return res.status(401).json({ message: 'Session expired. Logged in from another device.' });
@@ -42,6 +45,8 @@ const verifyToken = async (req, res, next) => {
         } catch (dbErr) {
             console.error('Session Token DB Error:', dbErr);
             return res.status(500).json({ message: 'Internal server error validating session' });
+        } finally {
+            if (connection) await connection.close();
         }
 
         next();

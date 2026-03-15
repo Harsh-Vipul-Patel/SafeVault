@@ -425,7 +425,63 @@ const templates = {
         `,
         false,
         'glow-gold'
-    )
+    ),
+    pendingApproval: (name, txnData) => {
+        const type = (txnData.type || 'Transaction').toUpperCase();
+        
+        return emailLayout(
+            'Action Required',
+            'Pending Manager Approval.',
+            `
+            <div class="amount-section">
+                <!-- Pending Stamp -->
+                <div class="stamp-container">
+                    <svg width="48" height="48" viewBox="0 0 52 52" style="filter: drop-shadow(0 0 12px rgba(56,189,248,0.4));">
+                        <circle cx="26" cy="26" r="23" fill="none" stroke="\${colors.sky}" stroke-width="1.5" />
+                        <path d="M26 14 v12 l6 6" fill="none" stroke="\${colors.sky}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+
+                <div class="status-pill" style="background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.25); color: \${colors.sky};">PENDING APPROVAL</div>
+                <div class="big-amount" style="color: \${colors.sky}; text-shadow: 0 0 40px rgba(56,189,248,0.3);">₹\${Number(txnData.amount).toLocaleString('en-IN')}</div>
+                <p style="font-size: 13px; color: \${colors.cream2}; line-height: 1.6; padding: 0 20px; font-weight: 600;">Hello \${name},<br>Your \${type.toLowerCase()} has been sent to the manager and is waiting for the approval.</p>
+            </div>
+
+            <div class="tear-line"></div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <tr class="data-row">
+                        <td class="data-key">Reference</td>
+                        <td class="data-val">\${txnData.ref || 'TXN-' + Date.now().toString().slice(-8)}</td>
+                    </tr>
+                    <tr class="data-row">
+                        <td class="data-key">Date & Time</td>
+                        <td class="data-val">\${new Date(txnData.date || Date.now()).toLocaleString('en-IN')}</td>
+                    </tr>
+                </table>
+
+                <table class="data-table">
+                    <tr class="data-row">
+                        <td class="data-key">Entity To</td>
+                        <td class="data-val">\${(txnData.receiver || '---').toUpperCase()}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="security-summary">
+                <span class="security-tag">Security Protocol: AES-256-GCM / TLS 1.3</span>
+                <span style="color: \${colors.muted}; font-size: 10px;">▾</span>
+            </div>
+
+            <div class="btn-container">
+                <a href="\${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="btn">View Status</a>
+            </div>
+            `,
+            false,
+            'glow-sky'
+        );
+    }
 };
 
 module.exports = templates;

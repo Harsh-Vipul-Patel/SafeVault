@@ -139,10 +139,34 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
                 { autoCommit: true }
             );
 
+            const ref = 'QUEUED-' + Date.now().toString().slice(-6);
+
+            // --- Post-Transaction Non-Critical Logic: Email Notification for Pending Transfer ---
+            try {
+                if (req.user?.role === 'CUSTOMER') {
+                    const senderResult = await connection.execute(
+                        `SELECT email, full_name FROM CUSTOMERS WHERE customer_id = :id`, [req.user.id], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+                    );
+                    const sender = senderResult.rows[0];
+                    if (sender?.EMAIL) {
+                        const senderHtml = templates.pendingApproval(sender.FULL_NAME, {
+                            amount,
+                            ref: ref,
+                            type: 'Internal Transfer',
+                            receiver: toAccountId
+                        });
+                        await sendEmail(sender.EMAIL, 'Transfer Queued for Approval - Safe Vault', senderHtml, [], true).catch(e => console.error('Email Error:', e));
+                    }
+                }
+            } catch (postErr) {
+                console.error('Post-Transaction logic error (Internal High Value):', postErr);
+            }
+
             return res.json({
                 message: `Transfer of ₹${amount} exceeds threshold and has been queued for manager approval.`,
                 status: 'PENDING_APPROVAL',
-                isHighValue: true
+                isHighValue: true,
+                ref: ref
             });
         }
 
@@ -337,16 +361,22 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
                 if (sender?.EMAIL) {
                     const attachments = [{ filename: `Receipt-${transferRef}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }];
-                    const senderHtml = templates.transaction(sender.FULL_NAME, {
+                    const senderHtml = templates.pendingApproval(sender.FULL_NAME, {
                         amount,
                         ref: transferRef,
-                        type: 'External Transfer (Pending Approval)'
+                        type: 'External Transfer',
+                        receiver: `${toAccount} (${mode})`
                     });
                     await sendEmail(sender.EMAIL, 'External Transfer Queued - Safe Vault', senderHtml, attachments, true).catch(e => console.error('Email Error:', e));
                 }
             }
         } catch (postErr) {
             console.error('Post-Transaction logic error (External):', postErr);
+        }
+
+        // Process pending DB notifications (EXT_TXN_INITIATED)
+        if (req.user?.id) {
+            await processPendingNotifications(req.user.id, connection, false).catch(err => console.error('Notification Dispatch Error for EXT:', err));
         }
 
         return res.json({ message: 'External transfer queued. Requires manager approval.', ref: transferRef });
@@ -1024,12 +1054,31 @@ router.post('/service-requests', verifyToken, requireRole(['CUSTOMER']), async (
     let connection;
     try {
         connection = await oracledb.getConnection();
-        await connection.execute(
-            `BEGIN sp_create_service_request(:cust_id, :type, :desc); END;`,
-            { cust_id: getUserId(req), type, desc: description },
+        
+        // Retrieve the newly created SR_ID
+        const result = await connection.execute(
+            `DECLARE
+                v_sr_id NUMBER;
+             BEGIN
+                sp_create_service_request(:cust_id, :type, :desc);
+                SELECT MAX(sr_id) INTO v_sr_id FROM SERVICE_REQUESTS WHERE customer_id = :cust_id;
+                :out_sr_id := v_sr_id;
+             END;`,
+            { 
+                cust_id: getUserId(req), 
+                type, 
+                desc: description,
+                out_sr_id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+            },
             { autoCommit: true }
         );
-        res.json({ message: 'Service request submitted successfully.' });
+
+        const newSrId = result.outBinds.out_sr_id;
+
+        // Fetch user ID to process notifications. getUserId(req) gives the database CUSTOMERS.customer_id.
+        await processPendingNotifications(getUserId(req), connection, false).catch(e => console.error('Notification Dispatch Error for SR:', e));
+
+        res.json({ message: 'Service request submitted successfully.', requestId: newSrId });
     } catch (err) {
         console.error('Create SR Error:', err);
         res.status(500).json({ message: 'Failed to submit service request.' });
