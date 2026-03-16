@@ -270,7 +270,11 @@ export default function CustomerDashboard() {
                                         {formatINR(bal)}
                                     </td>
                                     <td>
-                                        <span className={styles.statusDone}>Completed</span>
+                                        {t.STATUS === 'PENDING' ? (
+                                            <span className={styles.statusDone} style={{ backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.25)' }}>Pending</span>
+                                        ) : (
+                                            <span className={styles.statusDone}>Completed</span>
+                                        )}
                                     </td>
                                 </motion.tr>
                             );

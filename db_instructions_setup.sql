@@ -136,6 +136,45 @@ BEGIN
 END;
 /
 
+-- 3b. Create Standing Instruction
+CREATE OR REPLACE PROCEDURE sp_create_standing_instruction (
+    p_customer_id IN VARCHAR2,
+    p_debit_account_id IN VARCHAR2,
+    p_credit_reference IN VARCHAR2,
+    p_instruction_type IN VARCHAR2,
+    p_amount IN NUMBER,
+    p_frequency IN VARCHAR2,
+    p_start_date IN DATE,
+    p_end_date IN DATE,
+    p_max_executions IN NUMBER,
+    p_created_by IN VARCHAR2
+) AS
+    v_next_date DATE;
+    v_user RAW(16);
+BEGIN
+    v_next_date := p_start_date;
+
+    IF p_created_by IS NOT NULL THEN
+        BEGIN
+            SELECT user_id INTO v_user FROM USERS WHERE session_token = p_created_by;
+        EXCEPTION WHEN NO_DATA_FOUND THEN
+            v_user := NULL;
+        END;
+    END IF;
+
+    INSERT INTO STANDING_INSTRUCTIONS (
+        customer_id, debit_account_id, credit_reference, instruction_type,
+        amount, frequency, start_date, end_date, max_executions,
+        next_execution_date, created_by
+    ) VALUES (
+        p_customer_id, p_debit_account_id, p_credit_reference, p_instruction_type,
+        p_amount, p_frequency, p_start_date, p_end_date, p_max_executions,
+        v_next_date, v_user
+    );
+    COMMIT;
+END;
+/
+
 -- 4. Execute Standing Instruction
 CREATE OR REPLACE PROCEDURE sp_execute_standing_instruction (
     p_instruction_id IN NUMBER

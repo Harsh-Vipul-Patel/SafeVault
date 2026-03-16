@@ -376,7 +376,7 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
         // Process pending DB notifications (EXT_TXN_INITIATED)
         if (req.user?.id) {
-            await processPendingNotifications(req.user.id, connection, false).catch(err => console.error('Notification Dispatch Error for EXT:', err));
+            await processPendingNotifications(req.user.id, connection, true).catch(err => console.error('Notification Dispatch Error for EXT:', err));
         }
 
         return res.json({ message: 'External transfer queued. Requires manager approval.', ref: transferRef });
@@ -712,15 +712,24 @@ router.post('/change-password', verifyToken, requireRole(['CUSTOMER']), async (r
         }
         const storedHash = result.rows[0].PASSWORD_HASH;
         let isMatch = false;
+
+        const bcrypt = require('bcryptjs');
         try {
-            isMatch = await bcrypt.compare(currentPassword, storedHash);
+            if (storedHash.startsWith('$2')) {
+                isMatch = await bcrypt.compare(currentPassword, storedHash);
+            } else {
+                const crypto = require('crypto');
+                const sha256 = crypto.createHash('sha256').update(currentPassword).digest('hex');
+                isMatch = sha256 === storedHash;
+            }
         } catch {
-            // If hash comparison fails (plain text stored), do direct comparison
             isMatch = (currentPassword === storedHash);
         }
+
         if (!isMatch) {
             return res.status(401).json({ message: 'Current password is incorrect.' });
         }
+
         const newHash = await bcrypt.hash(newPassword, 10);
         await connection.execute(
             `UPDATE USERS SET password_hash = :hash
@@ -948,7 +957,7 @@ router.post('/beneficiaries/activate', verifyToken, requireRole(['CUSTOMER']), a
 // --- STANDING INSTRUCTIONS ---
 // POST /api/customer/standing-instructions
 router.post('/standing-instructions', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
-    const { debitAccountId, creditReference, type, amount, frequency, startDate, endDate, maxExecutions } = req.body;
+    const { fromAccountId, creditReference, toAccountId, type, amount, frequency, startDate, nextRun, endDate, maxExecutions } = req.body;
     let connection;
     try {
         connection = await oracledb.getConnection();
@@ -956,9 +965,9 @@ router.post('/standing-instructions', verifyToken, requireRole(['CUSTOMER']), as
             `BEGIN sp_create_standing_instruction(:cust_id, :debit, :credit, :type, :amt, :freq, 
                 TO_DATE(:start, 'YYYY-MM-DD'), TO_DATE(:end, 'YYYY-MM-DD'), :max, :uid); END;`,
             {
-                cust_id: getUserId(req), debit: debitAccountId, credit: creditReference,
-                type, amt: Number(amount), freq: frequency,
-                start: startDate, end: endDate || null, max: maxExecutions || null,
+                cust_id: getUserId(req), debit: fromAccountId || req.body.debitAccountId, credit: toAccountId || creditReference,
+                type: type || 'INTERNAL_TRANSFER', amt: Number(amount), freq: frequency,
+                start: nextRun || startDate, end: endDate || null, max: maxExecutions || null,
                 uid: req.user.session_token // Using session token as reference for created_by
             },
             { autoCommit: true }

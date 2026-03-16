@@ -14,6 +14,7 @@ export default function ExternalTransfer() {
     const [loading, setLoading] = useState(false);
     const [otp, setOtp] = useState('');
     const [otpSent, setOtpSent] = useState(false);
+    const [msg, setMsg] = useState(null);
 
     const generateOtp = async () => {
         if (!fromAccount) {

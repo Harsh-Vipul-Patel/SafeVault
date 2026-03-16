@@ -198,6 +198,17 @@ router.post('/open-account', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
     let connection;
     try {
         connection = await oracledb.getConnection();
+
+        // Ensure customer exists
+        const custRes = await connection.execute(
+            `SELECT 1 FROM CUSTOMERS WHERE customer_id = :cid`,
+            { cid: customerId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (custRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Customer ID not found.' });
+        }
+
         // Get teller's branch
         const branchRes = await connection.execute(
             `SELECT branch_id FROM EMPLOYEES WHERE employee_id = :t_uid`,
@@ -513,7 +524,7 @@ router.get('/account-types', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
     try {
         connection = await oracledb.getConnection();
         const result = await connection.execute(
-            `SELECT type_id, type_name, min_balance, interest_rate, description
+            `SELECT type_id, type_name, min_balance, interest_rate
              FROM ACCOUNT_TYPES
              ORDER BY type_id`,
             {},

@@ -465,7 +465,7 @@ router.get('/settlement', verifyToken, requireRole(MANAGER_ROLES), async (req, r
         const filterStatus = status || 'PENDING';
 
         const result = await connection.execute(
-            `SELECT p.transfer_id, p.source_account_id, p.amount,
+            `SELECT RAWTOHEX(p.transfer_id) AS transfer_id, p.source_account_id, p.amount,
                     p.destination_ifsc, p.destination_account, p.destination_name,
                     p.purpose, p.status, p.transfer_mode, p.initiated_at,
                     p.initiated_by, p.settled_at, p.settlement_reference,
