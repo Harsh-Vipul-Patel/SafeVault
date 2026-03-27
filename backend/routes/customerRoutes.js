@@ -852,6 +852,99 @@ router.get('/loans', verifyToken, requireRole(['CUSTOMER']), async (req, res) =>
     }
 });
 
+// POST /api/customer/loan-request — customer submits a loan application
+router.post('/loan-request', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    const { loanType, requestedAmount, tenureMonths, annualRate } = req.body;
+
+    if (!loanType || !requestedAmount || !tenureMonths) {
+        return res.status(400).json({ message: 'Loan type, requested amount, and tenure are required.' });
+    }
+
+    const validTypes = ['PERSONAL', 'HOME', 'VEHICLE', 'EDUCATION'];
+    if (!validTypes.includes(loanType)) {
+        return res.status(400).json({ message: `Invalid loan type. Must be one of: ${validTypes.join(', ')}` });
+    }
+
+    if (Number(requestedAmount) <= 0) {
+        return res.status(400).json({ message: 'Requested amount must be greater than 0.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const custId = getUserId(req);
+
+        // Get customer's first active account for linked_account_id and branch_id
+        const accResult = await connection.execute(
+            `SELECT account_id, home_branch_id FROM ACCOUNTS 
+             WHERE customer_id = :cust_id AND status = 'ACTIVE'
+             ORDER BY opened_date ASC FETCH FIRST 1 ROWS ONLY`,
+            { cust_id: custId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        if (accResult.rows.length === 0) {
+            return res.status(400).json({ message: 'No active account found. You need an active account to apply for a loan.' });
+        }
+
+        const linkedAccount = accResult.rows[0].ACCOUNT_ID;
+        const branchId = accResult.rows[0].HOME_BRANCH_ID;
+
+        // Default annual rate if not provided (will be set by loan manager during review)
+        const rate = Number(annualRate) || 10.5;
+
+        const result = await connection.execute(
+            `INSERT INTO LOAN_APPLICATIONS (customer_id, branch_id, loan_type, requested_amount, tenure_months, annual_rate, linked_account_id, status)
+             VALUES (:cid, :bid, :ltype, :amt, :tenure, :rate, :lnk, 'RECEIVED')
+             RETURNING RAWTOHEX(loan_app_id) INTO :appid`,
+            {
+                cid: custId,
+                bid: branchId,
+                ltype: loanType,
+                amt: Number(requestedAmount),
+                tenure: Number(tenureMonths),
+                rate: rate,
+                lnk: linkedAccount,
+                appid: { type: oracledb.STRING, dir: oracledb.BIND_OUT }
+            },
+            { autoCommit: true }
+        );
+
+        // Send notification
+        try {
+            const custRes = await connection.execute(
+                `SELECT full_name, user_id FROM CUSTOMERS WHERE customer_id = :cid`,
+                { cid: custId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+            if (custRes.rows.length > 0) {
+                const v_json = JSON.stringify({
+                    customer_name: custRes.rows[0].FULL_NAME,
+                    loan_type: loanType,
+                    amount: requestedAmount
+                });
+                await connection.execute(
+                    `INSERT INTO NOTIFICATION_LOG (customer_id, user_id, trigger_event, channel, message_clob)
+                     VALUES (:cid, :uid, 'LOAN_APPLIED', 'EMAIL', :msg)`,
+                    { cid: custId, uid: custRes.rows[0].USER_ID, msg: v_json },
+                    { autoCommit: true }
+                );
+            }
+        } catch (notifErr) {
+            console.error('Loan notification error (non-critical):', notifErr.message);
+        }
+
+        res.json({ 
+            message: 'Loan application submitted successfully! It will be reviewed by the loan manager.',
+            loanAppId: result.outBinds.appid[0]
+        });
+    } catch (err) {
+        console.error('Loan Request Error:', err);
+        res.status(500).json({ message: 'Failed to submit loan application: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
 // POST /api/customer/deposits/closure-otp
 router.post('/deposits/closure-otp', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
     const { depositId, type } = req.body; // type: 'FD' or 'RD'

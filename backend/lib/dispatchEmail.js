@@ -47,13 +47,13 @@ async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, 
         if (error) {
             console.error(`Resend Error for notif ${notifId}:`, error);
             await connection.execute(
-                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notif_id = :id`,
-                [notifId]
+                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notif_id = :nid`,
+                { nid: notifId }
             );
         } else {
             await connection.execute(
-                `UPDATE NOTIFICATION_LOG SET status = 'SENT', resend_message_id = :msgId WHERE notif_id = :id`,
-                [data.id, notifId]
+                `UPDATE NOTIFICATION_LOG SET status = 'SENT', resend_message_id = :msgId WHERE notif_id = :nid`,
+                { msgId: data.id, nid: notifId }
             );
         }
         await connection.commit();
@@ -62,8 +62,8 @@ async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, 
         console.error(`Internal Dispatch Error for notif ${notifId}:`, err);
         try {
             await connection.execute(
-                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notif_id = :id`,
-                [notifId]
+                `UPDATE NOTIFICATION_LOG SET status = 'FAILED' WHERE notif_id = :nid`,
+                { nid: notifId }
             );
             await connection.commit();
         } catch (dbErr) {
@@ -73,28 +73,34 @@ async function dispatchEmail(notifId, triggerEvent, payloadJson, customerEmail, 
 }
 
 /**
- * Polls and processes pending notifications for a specific user
+ * Polls and processes pending notifications for a specific user/customer
+ * FIX: Use named bind variable :bindId instead of positional [id]
+ * to avoid ORA-01745 when id contains hyphens (e.g., CUST-MUM-001)
  */
 async function processPendingNotifications(id, connection, isUserId = true) {
-    const whereClause = isUserId ? `n.user_id = :id` : `n.customer_id = :id`;
+    // Use RAWTOHEX for user_id (RAW type), direct compare for customer_id (VARCHAR2)
+    const whereClause = isUserId
+        ? `RAWTOHEX(n.user_id) = :bindId`
+        : `n.customer_id = :bindId`;
+
     const result = await connection.execute(
         `SELECT n.notif_id, n.trigger_event, n.message_clob, c.email
-     FROM NOTIFICATION_LOG n
-     JOIN CUSTOMERS c ON n.customer_id = c.customer_id
-     WHERE ${whereClause} AND n.status = 'PENDING'`,
-        [id],
-        { 
+         FROM NOTIFICATION_LOG n
+         JOIN CUSTOMERS c ON n.customer_id = c.customer_id
+         WHERE ${whereClause} AND n.status = 'PENDING'`,
+        { bindId: id },
+        {
             outFormat: oracledb.OUT_FORMAT_OBJECT,
-            fetchInfo: { "MESSAGE_CLOB": { type: oracledb.STRING } } 
+            fetchInfo: { "MESSAGE_CLOB": { type: oracledb.STRING } }
         }
     );
 
     for (const row of result.rows) {
         const { NOTIF_ID, TRIGGER_EVENT, MESSAGE_CLOB, EMAIL } = row;
-        // Block and wait for dispatch to avoid rate limits and connection issues
-        await dispatchEmail(NOTIF_ID, TRIGGER_EVENT, MESSAGE_CLOB, EMAIL, connection).catch(e => console.error(`Dispatch failed for notif ${NOTIF_ID}:`, e));
-        
-        // Small delay to respect Resend rate limits (2/sec)
+        await dispatchEmail(NOTIF_ID, TRIGGER_EVENT, MESSAGE_CLOB, EMAIL, connection)
+            .catch(e => console.error(`Dispatch failed for notif ${NOTIF_ID}:`, e));
+
+        // Respect Resend rate limits (2/sec)
         await new Promise(resolve => setTimeout(resolve, 550));
     }
 }

@@ -18,7 +18,8 @@ import {
     User,
     PhoneCall,
     LogOut,
-    ChevronRight
+    ChevronRight,
+    Landmark
 } from 'lucide-react';
 import styles from './customer.module.css';
 
@@ -74,6 +75,7 @@ export default function CustomerLayout({ children }) {
         { icon: <Globe size={18} />, label: 'External Transfer', path: '/customer/external' },
         { icon: <Users size={18} />, label: 'Manage Beneficiaries', path: '/customer/beneficiaries' },
         { icon: <Clock size={18} />, label: 'Standing Instructions', path: '/customer/standing-instructions' },
+        { icon: <Landmark size={18} />, label: 'My Loans', path: '/customer/loans' },
         { icon: <FileText size={18} />, label: 'Statements', path: '/customer/statements' },
     ];
 

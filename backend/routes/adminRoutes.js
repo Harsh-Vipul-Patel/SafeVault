@@ -554,4 +554,167 @@ router.post('/customers/update', async (req, res) => {
     }
 });
 
+// --- BRANCH CRUD ---
+
+// PUT /api/admin/branches/:branchId — Update branch details
+router.put('/branches/:branchId', async (req, res) => {
+    const { branchId } = req.params;
+    const { branchName, ifscCode, address, city, state, isActive } = req.body;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // Build dynamic update
+        const sets = [];
+        const binds = { bid: branchId };
+        if (branchName !== undefined) { sets.push('branch_name = :bname'); binds.bname = branchName; }
+        if (ifscCode !== undefined) { sets.push('ifsc_code = :ifsc'); binds.ifsc = ifscCode; }
+        if (address !== undefined) { sets.push('address = :addr'); binds.addr = address; }
+        if (city !== undefined) { sets.push('city = :city'); binds.city = city; }
+        if (state !== undefined) { sets.push('state = :state'); binds.state = state; }
+        if (isActive !== undefined) { sets.push("is_active = :active"); binds.active = isActive; }
+
+        if (sets.length === 0) return res.status(400).json({ message: 'No fields to update.' });
+
+        const sql = `UPDATE BRANCHES SET ${sets.join(', ')} WHERE branch_id = :bid`;
+        const result = await connection.execute(sql, binds, { autoCommit: true });
+
+        if (result.rowsAffected === 0) return res.status(404).json({ message: 'Branch not found.' });
+
+        // Audit log
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('BRANCHES', :bid, 'UPDATE', :admin, SYSTIMESTAMP, 'Branch details updated by sys admin')`,
+            { bid: branchId, admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Branch updated successfully.' });
+    } catch (err) {
+        console.error('Update Branch Error:', err);
+        res.status(500).json({ message: 'Failed to update: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// DELETE /api/admin/branches/:branchId — Soft-delete (deactivate) a branch
+router.delete('/branches/:branchId', async (req, res) => {
+    const { branchId } = req.params;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const result = await connection.execute(
+            `UPDATE BRANCHES SET is_active = '0' WHERE branch_id = :bid`,
+            { bid: branchId },
+            { autoCommit: true }
+        );
+        if (result.rowsAffected === 0) return res.status(404).json({ message: 'Branch not found.' });
+
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('BRANCHES', :bid, 'DEACTIVATE', :admin, SYSTIMESTAMP, 'Branch deactivated by sys admin')`,
+            { bid: branchId, admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Branch deactivated successfully.' });
+    } catch (err) {
+        console.error('Deactivate Branch Error:', err);
+        res.status(500).json({ message: 'Failed to deactivate: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// --- STAFF / EMPLOYEE CRUD ---
+
+// PUT /api/admin/users/:userId — Update employee role, branch, or full name
+router.put('/users/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { fullName, role, branchId } = req.body;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        const sets = [];
+        const binds = { uid: userId };
+        if (fullName !== undefined) { sets.push('full_name = :fname'); binds.fname = fullName; }
+        if (role !== undefined) { sets.push('role = :role'); binds.role = role; }
+        if (branchId !== undefined) { sets.push('branch_id = :bid'); binds.bid = branchId; }
+
+        if (sets.length === 0) return res.status(400).json({ message: 'No fields to update.' });
+
+        const sql = `UPDATE EMPLOYEES SET ${sets.join(', ')} WHERE user_id = HEXTORAW(:uid)`;
+        const result = await connection.execute(sql, binds, { autoCommit: true });
+
+        if (result.rowsAffected === 0) return res.status(404).json({ message: 'Employee not found for this user.' });
+
+        // Also update USERS.user_type if role changes between employee types
+        if (role) {
+            await connection.execute(
+                `UPDATE USERS SET user_type = 'EMPLOYEE' WHERE user_id = HEXTORAW(:uid)`,
+                { uid: userId },
+                { autoCommit: true }
+            );
+        }
+
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('EMPLOYEES', :uid, 'UPDATE', :admin, SYSTIMESTAMP, 'Employee profile updated by sys admin')`,
+            { uid: userId, admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Employee updated successfully.' });
+    } catch (err) {
+        console.error('Update Employee Error:', err);
+        res.status(500).json({ message: 'Failed to update employee: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// DELETE /api/admin/users/:userId — Soft-deactivate employee (lock user + set employee inactive)
+router.delete('/users/:userId', async (req, res) => {
+    const { userId } = req.params;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // Deactivate employee record
+        const empResult = await connection.execute(
+            `UPDATE EMPLOYEES SET is_active = '0' WHERE user_id = HEXTORAW(:uid)`,
+            { uid: userId }
+        );
+
+        // Lock user account
+        await connection.execute(
+            `UPDATE USERS SET is_locked = '1' WHERE user_id = HEXTORAW(:uid)`,
+            { uid: userId }
+        );
+
+        await connection.commit();
+
+        if (empResult.rowsAffected === 0) {
+            return res.status(404).json({ message: 'Employee not found for this user.' });
+        }
+
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('EMPLOYEES', :uid, 'DEACTIVATE', :admin, SYSTIMESTAMP, 'Employee deactivated by sys admin')`,
+            { uid: userId, admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        res.json({ message: 'Employee deactivated and account locked.' });
+    } catch (err) {
+        if (connection) await connection.rollback();
+        console.error('Deactivate Employee Error:', err);
+        res.status(500).json({ message: 'Failed to deactivate: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
 module.exports = router;

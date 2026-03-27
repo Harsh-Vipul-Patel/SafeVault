@@ -84,6 +84,42 @@ router.post('/application/:id/status', verifyToken, requireRole(LOAN_ROLES), asy
     }
 });
 
+// PUT /api/loan-manager/application/:id/terms — Edit amount and rate
+router.put('/application/:id/terms', verifyToken, requireRole(LOAN_ROLES), async (req, res) => {
+    const { id } = req.params;
+    const { requestedAmount, annualRate } = req.body;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const emp = await getEmployeeId(connection, req.user?.id);
+
+        const result = await connection.execute(
+            `UPDATE LOAN_APPLICATIONS 
+             SET requested_amount = :amt, annual_rate = :rate, reviewed_by = :emp
+             WHERE loan_app_id = HEXTORAW(:id) AND status IN ('RECEIVED', 'UNDER_REVIEW')`,
+            {
+                amt: Number(requestedAmount),
+                rate: Number(annualRate),
+                emp: emp?.EMPLOYEE_ID,
+                id
+            },
+            { autoCommit: true }
+        );
+
+        if (result.rowsAffected === 0) {
+            return res.status(400).json({ message: 'Loan not found or cannot be edited in its current status.' });
+        }
+
+        res.json({ message: 'Loan terms updated successfully.' });
+    } catch (err) {
+        console.error('Terms Update Error:', err);
+        res.status(500).json({ message: 'Failed to update loan terms: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+
 // POST /api/loan-manager/emi/generate
 router.post('/emi/generate', verifyToken, requireRole(LOAN_ROLES), async (req, res) => {
     // Note: requires loanAccountId, principal, annualRate, tenureMonths

@@ -24,6 +24,7 @@ const STATUS_COLORS = {
     ACTIVE: { bg: 'rgba(16, 185, 129, 0.08)', color: '#10B981', border: 'rgba(16, 185, 129, 0.15)' },
     CLOSED: { bg: 'rgba(148, 163, 184, 0.1)', color: '#94A3B8', border: 'rgba(148, 163, 184, 0.25)' },
     DEFAULTED: { bg: 'rgba(248, 113, 113, 0.1)', color: '#F87171', border: 'rgba(248, 113, 113, 0.25)' },
+    REJECTED: { bg: 'rgba(248, 113, 113, 0.1)', color: '#F87171', border: 'rgba(248, 113, 113, 0.25)' },
     PENDING: { bg: 'rgba(251, 191, 36, 0.1)', color: '#FBBF24', border: 'rgba(251, 191, 36, 0.25)' },
     PAID: { bg: 'rgba(16, 185, 129, 0.08)', color: '#10B981', border: 'rgba(16, 185, 129, 0.15)' },
     OVERDUE: { bg: 'rgba(248, 113, 113, 0.1)', color: '#F87171', border: 'rgba(248, 113, 113, 0.25)' },
@@ -48,11 +49,20 @@ export default function CustomerLoans() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [expandedLoan, setExpandedLoan] = useState(null);
+    const [showApply, setShowApply] = useState(false);
+    const [applying, setApplying] = useState(false);
+    const [msg, setMsg] = useState(null);
+    const [form, setForm] = useState({
+        loanType: 'PERSONAL',
+        requestedAmount: '',
+        tenureMonths: '',
+        annualRate: ''
+    });
 
-    useEffect(() => {
+    const fetchLoans = () => {
         const token = getToken();
         if (!token) { setLoading(false); return; }
-
+        setLoading(true);
         fetch(`${API}/api/customer/loans`, {
             headers: { Authorization: `Bearer ${token}` }
         })
@@ -66,7 +76,36 @@ export default function CustomerLoans() {
                 setError('Failed to fetch loan details.');
                 setLoading(false);
             });
-    }, []);
+    };
+
+    useEffect(() => { fetchLoans(); }, []);
+
+    const handleApply = async (e) => {
+        e.preventDefault();
+        setApplying(true);
+        setMsg(null);
+        try {
+            const token = getToken();
+            const res = await fetch(`${API}/api/customer/loan-request`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(form)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setMsg({ type: 'success', text: data.message });
+                setShowApply(false);
+                setForm({ loanType: 'PERSONAL', requestedAmount: '', tenureMonths: '', annualRate: '' });
+                fetchLoans();
+            } else {
+                setMsg({ type: 'error', text: data.message });
+            }
+        } catch {
+            setMsg({ type: 'error', text: 'Failed to submit loan request.' });
+        } finally {
+            setApplying(false);
+        }
+    };
 
     const getEmisForLoan = (loanAccountId) => {
         return emis.filter(e => e.LOAN_ACCOUNT_ID === loanAccountId);
@@ -91,10 +130,107 @@ export default function CustomerLoans() {
         <div className={styles.dashboard}>
             <header className={styles.tableHeader}>
                 <h1 className={styles.greeting}>My Loans</h1>
-                <Link href="/customer/dashboard" className={styles.viewAllLink}>← Back to Dashboard</Link>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <Link href="/customer/dashboard" className={styles.viewAllLink}>← Back to Dashboard</Link>
+                    <button
+                        className={styles.btnPrimary}
+                        onClick={() => setShowApply(!showApply)}
+                        style={{ padding: '12px 24px', fontSize: '13px' }}
+                    >
+                        {showApply ? 'Cancel' : '+ Apply for Loan'}
+                    </button>
+                </div>
             </header>
 
             {error && <div className={styles.errorBanner}>{error}</div>}
+
+            {msg && (
+                <div style={{
+                    background: msg.type === 'error' ? 'rgba(248,113,113,0.08)' : 'rgba(16,185,129,0.08)',
+                    border: `1px solid ${msg.type === 'error' ? 'rgba(248,113,113,0.2)' : 'rgba(16,185,129,0.2)'}`,
+                    color: msg.type === 'error' ? '#F87171' : '#10B981',
+                    padding: '16px 24px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, marginBottom: '8px'
+                }}>
+                    {msg.text}
+                </div>
+            )}
+
+            {/* LOAN APPLICATION FORM */}
+            {showApply && (
+                <div className={styles.tableContainer} style={{
+                    background: 'rgba(96, 165, 250, 0.03)', border: '1px solid rgba(96, 165, 250, 0.15)',
+                    borderRadius: '16px', padding: '28px'
+                }}>
+                    <h2 className={styles.tableTitle} style={{ marginBottom: '20px' }}>Apply for a New Loan</h2>
+                    <form onSubmit={handleApply} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                            <label style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Loan Type</label>
+                            <select
+                                value={form.loanType}
+                                onChange={e => setForm({ ...form, loanType: e.target.value })}
+                                style={{
+                                    width: '100%', padding: '12px', background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#E2E8F0',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                <option value="PERSONAL">Personal Loan</option>
+                                <option value="HOME">Home Loan</option>
+                                <option value="VEHICLE">Vehicle Loan</option>
+                                <option value="EDUCATION">Education Loan</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Requested Amount (₹)</label>
+                            <input
+                                type="number" value={form.requestedAmount} required min="1000"
+                                onChange={e => setForm({ ...form, requestedAmount: e.target.value })}
+                                placeholder="e.g. 500000"
+                                style={{
+                                    width: '100%', padding: '12px', background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#E2E8F0',
+                                    fontSize: '14px'
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tenure (Months)</label>
+                            <input
+                                type="number" value={form.tenureMonths} required min="1" max="360"
+                                onChange={e => setForm({ ...form, tenureMonths: e.target.value })}
+                                placeholder="e.g. 36"
+                                style={{
+                                    width: '100%', padding: '12px', background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#E2E8F0',
+                                    fontSize: '14px'
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desired Rate (%) <span style={{ color: '#64748B' }}>Optional</span></label>
+                            <input
+                                type="number" value={form.annualRate} step="0.01" min="0" max="30"
+                                onChange={e => setForm({ ...form, annualRate: e.target.value })}
+                                placeholder="10.5 (auto if empty)"
+                                style={{
+                                    width: '100%', padding: '12px', background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#E2E8F0',
+                                    fontSize: '14px'
+                                }}
+                            />
+                        </div>
+                        <div style={{ gridColumn: 'span 2', display: 'flex', gap: '16px', marginTop: '8px' }}>
+                            <button type="submit" disabled={applying} className={styles.btnPrimary} style={{ flex: 1, justifyContent: 'center' }}>
+                                {applying ? 'Submitting...' : 'Submit Loan Application'}
+                            </button>
+                            <button type="button" className={styles.btnSecondary} onClick={() => setShowApply(false)} style={{ flex: 0.4, justifyContent: 'center' }}>Cancel</button>
+                        </div>
+                    </form>
+                    <p style={{ color: '#64748B', fontSize: '12px', marginTop: '12px' }}>
+                        Your application will be reviewed by the Loan Manager. The rate may be adjusted during review.
+                    </p>
+                </div>
+            )}
 
             {/* KPI ROW */}
             <div className={styles.cardsRow}>
@@ -141,7 +277,7 @@ export default function CustomerLoans() {
                         {loans.length === 0 ? (
                             <tr>
                                 <td colSpan={8} style={{ textAlign: 'center', padding: '48px 0', color: '#64748B' }}>
-                                    You have no loan applications yet. Visit your nearest branch to apply.
+                                    You have no loan applications yet. Click "Apply for Loan" above to get started.
                                 </td>
                             </tr>
                         ) : loans.map((loan, i) => {
@@ -270,17 +406,6 @@ export default function CustomerLoans() {
                     </div>
                 );
             })()}
-
-            <div className={styles.summaryCard} style={{
-                width: '100%', maxWidth: 'none',
-                background: 'rgba(96, 165, 250, 0.03)', border: '1px dashed rgba(96, 165, 250, 0.3)',
-                borderRadius: '12px'
-            }}>
-                <p style={{ color: '#60A5FA', fontSize: '14px', margin: 0 }}>
-                    <strong>Need a Loan?</strong> Visit your nearest Safe Vault branch or contact the Loan Manager.
-                    We offer competitive rates on Personal, Home, Vehicle, and Education loans.
-                </p>
-            </div>
         </div>
     );
 }
