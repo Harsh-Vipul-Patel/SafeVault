@@ -798,6 +798,60 @@ router.get('/deposits', verifyToken, requireRole(['CUSTOMER']), async (req, res)
     }
 });
 
+// GET /api/customer/loans — fetch customer's loan applications and accounts
+router.get('/loans', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const custId = getUserId(req);
+
+        // Loan applications with account details
+        const apps = await connection.execute(
+            `SELECT RAWTOHEX(la.loan_app_id) AS loan_app_id,
+                    la.loan_type, la.requested_amount, la.tenure_months,
+                    la.annual_rate, la.status AS app_status, la.applied_at,
+                    lac.loan_account_id, lac.disbursed_amount,
+                    lac.outstanding_principal, lac.status AS account_status,
+                    lac.disbursed_at
+             FROM LOAN_APPLICATIONS la
+             LEFT JOIN LOAN_ACCOUNTS lac ON la.loan_app_id = lac.loan_app_id
+             WHERE la.customer_id = :cust_id
+             ORDER BY la.applied_at DESC`,
+            { cust_id: custId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // Next due EMIs for active loans
+        let emis = [];
+        if (apps.rows.length > 0) {
+            const loanAccountIds = apps.rows
+                .filter(r => r.LOAN_ACCOUNT_ID)
+                .map(r => r.LOAN_ACCOUNT_ID);
+
+            if (loanAccountIds.length > 0) {
+                const emiResult = await connection.execute(
+                    `SELECT es.loan_account_id, es.emi_id, es.emi_number, es.due_date,
+                            es.emi_amount, es.principal_component, es.interest_component,
+                            es.closing_balance, es.status, es.penalty_amount
+                     FROM EMI_SCHEDULE es
+                     WHERE es.loan_account_id IN (${loanAccountIds.map((_, i) => ':id' + i).join(',')})
+                     ORDER BY es.loan_account_id, es.emi_number ASC`,
+                    loanAccountIds.reduce((acc, id, i) => { acc['id' + i] = id; return acc; }, {}),
+                    { outFormat: oracledb.OUT_FORMAT_OBJECT }
+                );
+                emis = emiResult.rows;
+            }
+        }
+
+        res.json({ loanApplications: apps.rows, emiSchedules: emis });
+    } catch (err) {
+        console.error('Fetch Customer Loans Error:', err);
+        res.status(500).json({ message: 'Could not fetch loan details.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
 // POST /api/customer/deposits/closure-otp
 router.post('/deposits/closure-otp', verifyToken, requireRole(['CUSTOMER']), async (req, res) => {
     const { depositId, type } = req.body; // type: 'FD' or 'RD'
