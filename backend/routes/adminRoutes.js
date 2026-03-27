@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const oracledb = require('oracledb');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { sendEmail } = require('../utils/emailService');
 const templates = require('../utils/emailTemplates');
@@ -144,7 +146,7 @@ router.get('/branches', async (req, res) => {
 });
 
 // POST /api/admin/branches
-// Create a new branch
+// Create a new branch + auto-create its bank pool account + generate pool password
 router.post('/branches', async (req, res) => {
     const { branchId, branchName, ifscCode, address, city, state } = req.body;
 
@@ -155,6 +157,8 @@ router.post('/branches', async (req, res) => {
     let connection;
     try {
         connection = await oracledb.getConnection();
+
+        // 1. Create the branch
         await connection.execute(
             `INSERT INTO BRANCHES (branch_id, branch_name, ifsc_code, address, city, state, is_active)
              VALUES (:id, :name, :ifsc, :addr, :city, :state, '1')`,
@@ -165,11 +169,47 @@ router.post('/branches', async (req, res) => {
                 addr: address || '',
                 city: city || '',
                 state: state || ''
-            },
+            }
+        );
+
+        // 2. Auto-create bank pool account for this branch
+        const poolAccountId = 'ACC-BANK-' + branchId;
+        const poolAccountNumber = '999' + branchId.replace(/[^0-9]/g, '').padStart(15, '0').slice(0, 15);
+        await connection.execute(
+            `INSERT INTO ACCOUNTS (account_id, account_number, customer_id, account_type_id,
+                 home_branch_id, balance, status, opened_date, minimum_balance)
+             VALUES (:aid, :anum, 'CUST-BANK-001', 2, :bid, 100000000, 'ACTIVE', SYSDATE, 0)`,
+            { aid: poolAccountId, anum: poolAccountNumber, bid: branchId }
+        );
+
+        // 3. Generate random pool access password (shown ONCE to admin)
+        const poolPassword = crypto.randomBytes(6).toString('hex').toUpperCase(); // e.g., 'A3F8B2C1D9E4'
+        const passwordHash = await bcrypt.hash(poolPassword, 10);
+        await connection.execute(
+            `INSERT INTO POOL_ACCESS_CREDENTIALS (pool_account_id, password_hash)
+             VALUES (:paid, :phash)`,
+            { paid: poolAccountId, phash: passwordHash }
+        );
+
+        await connection.commit();
+
+        // Audit log
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('ACCOUNTS', :aid, 'INSERT', :admin, SYSTIMESTAMP, 'Bank pool account auto-created for new branch')`,
+            { aid: poolAccountId, admin: req.user.id },
             { autoCommit: true }
         );
-        res.json({ message: 'Branch created successfully.', branchId });
+
+        res.json({
+            message: 'Branch created successfully with bank pool account.',
+            branchId,
+            poolAccountId,
+            poolAccessPassword: poolPassword,
+            warning: 'SAVE THIS PASSWORD. It will NOT be shown again. Required to view pool account funds.'
+        });
     } catch (err) {
+        if (connection) await connection.rollback();
         console.error('Create Branch Error:', err);
         res.status(500).json({ message: 'Failed to create branch: ' + err.message });
     } finally {
@@ -712,6 +752,303 @@ router.delete('/users/:userId', async (req, res) => {
         if (connection) await connection.rollback();
         console.error('Deactivate Employee Error:', err);
         res.status(500).json({ message: 'Failed to deactivate: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// ===============================================================
+// --- BANK POOL MANAGEMENT (TWO-STEP AUTH: PASSWORD + OTP) ---
+// ===============================================================
+
+// STEP 1: POST /api/admin/bank-pool/verify-password
+// Admin enters the branch pool password → if correct, OTP is sent to admin's email
+router.post('/bank-pool/verify-password', async (req, res) => {
+    const { poolAccountId, password } = req.body;
+    if (!poolAccountId || !password) {
+        return res.status(400).json({ message: 'Pool account ID and password are required.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // 1. Fetch stored password hash
+        const credResult = await connection.execute(
+            `SELECT password_hash FROM POOL_ACCESS_CREDENTIALS WHERE pool_account_id = :paid`,
+            { paid: poolAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (credResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No credentials found for this pool account. Use reset-password first.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, credResult.rows[0].PASSWORD_HASH);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Incorrect pool access password.' });
+        }
+
+        // 2. Password correct → Generate OTP and send to admin's email
+        const adminEmpId = req.user.employeeId;
+        const empResult = await connection.execute(
+            `SELECT e.email, e.full_name, e.user_id FROM EMPLOYEES e WHERE e.employee_id = :eid`,
+            { eid: adminEmpId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (empResult.rows.length === 0 || !empResult.rows[0].EMAIL) {
+            return res.status(400).json({ message: 'Admin email not configured. Cannot send OTP.' });
+        }
+
+        const adminEmail = empResult.rows[0].EMAIL;
+        const adminName = empResult.rows[0].FULL_NAME;
+        const adminUserId = empResult.rows[0].USER_ID;
+
+        // Generate 6-digit OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = await bcrypt.hash(otpCode, 10);
+
+        // Store OTP in OTPS table
+        await connection.execute(
+            `INSERT INTO OTPS (user_id, transaction_id, otp_hash, purpose, expires_at, status)
+             VALUES (:uid, :txid, :ohash, 'POOL_ACCESS', CURRENT_TIMESTAMP + INTERVAL '5' MINUTE, 'PENDING')`,
+            { uid: adminUserId, txid: 'POOL-' + poolAccountId, ohash: otpHash },
+            { autoCommit: true }
+        );
+
+        // Send OTP email
+        const emailHtml = templates.otp(adminName, otpCode);
+        await sendEmail(adminEmail, 'Suraksha Bank - Pool Account Access OTP', emailHtml, [], true);
+
+        res.json({
+            message: 'Password verified. OTP sent to your registered email.',
+            poolAccountId,
+            adminEmployeeId: adminEmpId
+        });
+    } catch (err) {
+        console.error('Pool Password Verify Error:', err);
+        res.status(500).json({ message: 'Verification failed: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// STEP 2: POST /api/admin/bank-pool/verify-otp
+// Admin enters the OTP → if correct, return full pool account data
+router.post('/bank-pool/verify-otp', async (req, res) => {
+    const { poolAccountId, otpCode } = req.body;
+    if (!poolAccountId || !otpCode) {
+        return res.status(400).json({ message: 'Pool account ID and OTP are required.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // Verify OTP from OTPS table for this admin
+        const adminEmpId = req.user.employeeId;
+        const empResult = await connection.execute(
+            `SELECT user_id FROM EMPLOYEES WHERE employee_id = :eid`,
+            { eid: adminEmpId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (empResult.rows.length === 0) {
+            return res.status(400).json({ message: 'Admin employee not found.' });
+        }
+        const adminUserId = empResult.rows[0].USER_ID;
+
+        // Get latest OTP for this user + purpose
+        const otpResult = await connection.execute(
+            `SELECT otp_id, otp_hash, expires_at, attempts, status
+             FROM OTPS
+             WHERE user_id = :uid AND purpose = 'POOL_ACCESS' AND transaction_id = :txid
+             ORDER BY created_at DESC FETCH FIRST 1 ROWS ONLY`,
+            { uid: adminUserId, txid: 'POOL-' + poolAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        if (otpResult.rows.length === 0) {
+            return res.status(400).json({ message: 'No OTP found. Please verify password first.' });
+        }
+
+        const otpData = otpResult.rows[0];
+
+        if (otpData.STATUS !== 'PENDING') {
+            return res.status(400).json({ message: 'OTP already used or expired. Start over.' });
+        }
+        if (new Date() > new Date(otpData.EXPIRES_AT)) {
+            await connection.execute(`UPDATE OTPS SET status = 'FAILED' WHERE otp_id = :1`, [otpData.OTP_ID], { autoCommit: true });
+            return res.status(400).json({ message: 'OTP expired. Please verify password again.' });
+        }
+        if (otpData.ATTEMPTS >= 3) {
+            await connection.execute(`UPDATE OTPS SET status = 'FAILED' WHERE otp_id = :1`, [otpData.OTP_ID], { autoCommit: true });
+            return res.status(400).json({ message: 'Maximum OTP attempts reached.' });
+        }
+
+        const isMatch = await bcrypt.compare(otpCode, otpData.OTP_HASH);
+        if (!isMatch) {
+            const newAttempts = otpData.ATTEMPTS + 1;
+            await connection.execute(
+                `UPDATE OTPS SET attempts = :a, status = :s WHERE otp_id = :oid`,
+                { a: newAttempts, s: newAttempts >= 3 ? 'FAILED' : 'PENDING', oid: otpData.OTP_ID },
+                { autoCommit: true }
+            );
+            return res.status(401).json({ message: 'Incorrect OTP.', attemptsLeft: 3 - newAttempts });
+        }
+
+        // OTP verified
+        await connection.execute(`UPDATE OTPS SET status = 'SUCCESS' WHERE otp_id = :1`, [otpData.OTP_ID], { autoCommit: true });
+
+        // Update access tracking
+        await connection.execute(
+            `UPDATE POOL_ACCESS_CREDENTIALS SET last_accessed_at = SYSTIMESTAMP, access_count = access_count + 1
+             WHERE pool_account_id = :paid`,
+            { paid: poolAccountId },
+            { autoCommit: true }
+        );
+
+        // Audit Log
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('POOL_ACCESS_CREDENTIALS', :paid, 'ACCESS', :admin, SYSTIMESTAMP, 'Pool account accessed after password + OTP verification')`,
+            { paid: poolAccountId, admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        // ===== RETURN POOL DATA =====
+        // 1. Pool account details
+        const poolResult = await connection.execute(
+            `SELECT a.account_id, a.balance, a.home_branch_id, b.branch_name,
+                    a.opened_date, a.status
+             FROM ACCOUNTS a
+             JOIN BRANCHES b ON a.home_branch_id = b.branch_id
+             WHERE a.account_id = :paid`,
+            { paid: poolAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // 2. Recent transactions for this pool account
+        const txnResult = await connection.execute(
+            `SELECT t.transaction_id, t.account_id, t.transaction_type, t.amount,
+                    t.balance_after, t.transaction_date, t.description, t.initiated_by
+             FROM TRANSACTIONS t
+             WHERE t.account_id = :paid
+             ORDER BY t.transaction_date DESC
+             FETCH FIRST 50 ROWS ONLY`,
+            { paid: poolAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        // 3. Summary stats for this pool account
+        const summaryResult = await connection.execute(
+            `SELECT
+                NVL(SUM(CASE WHEN transaction_type = 'FEE_CREDIT' THEN amount ELSE 0 END), 0) AS total_fee_income,
+                NVL(SUM(CASE WHEN transaction_type = 'LOAN_EMI_CREDIT' THEN amount ELSE 0 END), 0) AS total_emi_income,
+                NVL(SUM(CASE WHEN transaction_type = 'LOAN_DISBURSE_DEBIT' THEN amount ELSE 0 END), 0) AS total_disbursed,
+                NVL(SUM(CASE WHEN transaction_type = 'INTEREST_DEBIT' THEN amount ELSE 0 END), 0) AS total_interest_paid,
+                NVL(SUM(CASE WHEN transaction_type = 'LOAN_PENALTY_CREDIT' THEN amount ELSE 0 END), 0) AS total_penalty_income
+             FROM TRANSACTIONS WHERE account_id = :paid`,
+            { paid: poolAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        res.json({
+            verified: true,
+            poolAccount: poolResult.rows[0] || {},
+            recentTransactions: txnResult.rows,
+            summary: summaryResult.rows[0] || {}
+        });
+    } catch (err) {
+        console.error('Pool OTP Verify Error:', err);
+        res.status(500).json({ message: 'OTP verification failed: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// GET /api/admin/bank-pool/list
+// List all pool accounts (no sensitive data, just IDs and branch names)
+router.get('/bank-pool/list', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const result = await connection.execute(
+            `SELECT a.account_id, a.home_branch_id, b.branch_name, a.status,
+                    pc.last_accessed_at, pc.access_count
+             FROM ACCOUNTS a
+             JOIN BRANCHES b ON a.home_branch_id = b.branch_id
+             LEFT JOIN POOL_ACCESS_CREDENTIALS pc ON a.account_id = pc.pool_account_id
+             WHERE a.customer_id = 'CUST-BANK-001'
+             ORDER BY a.home_branch_id`,
+            {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        res.json({ poolAccounts: result.rows });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
+// POST /api/admin/bank-pool/reset-password
+// Generate a new password for an existing pool account (for migration or if lost)
+router.post('/bank-pool/reset-password', async (req, res) => {
+    const { poolAccountId } = req.body;
+    if (!poolAccountId) {
+        return res.status(400).json({ message: 'Pool account ID is required.' });
+    }
+
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        // Verify the account exists and is a pool account
+        const accResult = await connection.execute(
+            `SELECT account_id FROM ACCOUNTS WHERE account_id = :paid AND customer_id = 'CUST-BANK-001'`,
+            { paid: poolAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (accResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Pool account not found.' });
+        }
+
+        // Generate new password
+        const newPassword = crypto.randomBytes(6).toString('hex').toUpperCase();
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+
+        // Upsert credential
+        const updateResult = await connection.execute(
+            `UPDATE POOL_ACCESS_CREDENTIALS SET password_hash = :phash, created_at = SYSTIMESTAMP
+             WHERE pool_account_id = :paid`,
+            { phash: passwordHash, paid: poolAccountId }
+        );
+
+        if (updateResult.rowsAffected === 0) {
+            await connection.execute(
+                `INSERT INTO POOL_ACCESS_CREDENTIALS (pool_account_id, password_hash)
+                 VALUES (:paid, :phash)`,
+                { paid: poolAccountId, phash: passwordHash }
+            );
+        }
+
+        await connection.commit();
+
+        // Audit log
+        await connection.execute(
+            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, change_reason)
+             VALUES ('POOL_ACCESS_CREDENTIALS', :paid, 'PASSWORD_RESET', :admin, SYSTIMESTAMP, 'Pool password reset by sys admin')`,
+            { paid: poolAccountId, admin: req.user.id },
+            { autoCommit: true }
+        );
+
+        res.json({
+            message: 'Pool access password reset successfully.',
+            poolAccountId,
+            newPassword,
+            warning: 'SAVE THIS PASSWORD. It will NOT be shown again.'
+        });
+    } catch (err) {
+        console.error('Pool Password Reset Error:', err);
+        res.status(500).json({ message: 'Failed to reset password: ' + err.message });
     } finally {
         if (connection) await connection.close();
     }
