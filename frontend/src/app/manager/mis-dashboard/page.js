@@ -37,7 +37,7 @@ export default function ManagerMIS() {
                 <div className={styles.breadcrumb}>Manager Console / <span className={styles.crumbActive}>Management Information System (MIS)</span></div>
             </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '32px' }}>
                 {/* INTEREST DASHBOARD */}
                 <div className={styles.card} style={{ padding: '24px', borderLeft: '4px solid #34D399' }}>
                     <div style={{ color: '#94A3B8', fontSize: '13px', marginBottom: '8px' }}>INTEREST INCOME (LOANS)</div>

@@ -144,8 +144,8 @@ export default function CustomerStandingInstructions() {
                         ) : instructions.map((ins, i) => (
                             <tr key={ins.INSTRUCTION_ID || i}>
                                 <td style={{ fontFamily: 'DM Mono' }}>{ins.INSTRUCTION_ID}</td>
-                                <td>{ins.FROM_ACCOUNT_ID}</td>
-                                <td>{ins.TO_ACCOUNT_ID}</td>
+                                <td>{ins.DEBIT_ACCOUNT_ID}</td>
+                                <td>{ins.CREDIT_REFERENCE}</td>
                                 <td className={styles.amtNegative}>{formatINR(ins.AMOUNT)}</td>
                                 <td>{ins.FREQUENCY}</td>
                                 <td>{new Date(ins.NEXT_EXECUTION_DATE).toLocaleDateString()}</td>

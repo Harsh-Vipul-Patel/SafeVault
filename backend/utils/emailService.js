@@ -8,7 +8,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
  * Send an email
  * @param {string} to - Recipient email address
  * @param {string} subject - Email subject
- * @param {string} text - Email body text
+ * @param {string} content - Email body content
  * @param {Array} attachments - Optional array of attachment objects
  * @returns {Promise<any>}
  */
@@ -31,6 +31,22 @@ const sendEmail = async (to, subject, content, attachments = [], isHtml = false)
         };
 
         const info = await resend.emails.send(mailOptions);
+
+        if (info.error) {
+            console.error('RESEND API Error:', info.error.message || 'Validation Error');
+            
+            // --- DEVELOPMENT FALLBACK: MOCK EMAIL ---
+            console.log('\n======================================================');
+            console.log(' 🛠️ OFFLINE TESTING / MOCK EMAIL DELIVERY');
+            console.log(' external email API is unactivated/blocked!');
+            console.log(` 📧 To: ${to}`);
+            console.log(` 📝 Subject: ${subject}`);
+            console.log('------------------------------------------------------');
+            console.log(isHtml ? content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]*>?/gm, '\n').replace(/\n\s*\n/g, '\n').trim() : content);
+            console.log('======================================================\n');
+            
+            return { messageId: 'simulated-tx', status: 'MOCKED' };
+        }
 
         console.log('--- Email Status ---');
         console.log('Message sent:', info.id || info.data?.id || 'Success');

@@ -50,6 +50,7 @@ export default function LoginPage() {
             if (res.ok) {
                 localStorage.setItem('suraksha_token', data.token);
                 localStorage.setItem('user_role', data.user.role);
+                localStorage.setItem('suraksha_user', JSON.stringify(data.user));
 
                 const role = data.user.role.toUpperCase();
                 if (role === 'CUSTOMER') router.push('/customer/dashboard');

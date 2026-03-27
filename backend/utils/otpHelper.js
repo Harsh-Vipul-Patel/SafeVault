@@ -72,6 +72,62 @@ const verifyOtp = async (connection, userId, otpCode, purpose) => {
     return { valid: true, email: userEmail };
 };
 
+const verifyManagerOtp = async (connection, userUuid, otpCode, purpose) => {
+    const result = await connection.execute(
+        `SELECT o.otp_id, o.otp_hash, o.expires_at, o.attempts, o.status, e.email 
+         FROM OTPS o
+         JOIN EMPLOYEES e ON o.user_id = e.user_id
+         WHERE e.employee_id = :param_uid 
+         AND o.purpose = :param_purpose 
+         ORDER BY o.created_at DESC FETCH FIRST 1 ROWS ONLY`,
+        { param_uid: userUuid, param_purpose: purpose },
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    if (result.rows.length === 0) return { valid: false, reason: 'No OTP found.', email: null };
+
+    const otpData = result.rows[0];
+    const userEmail = otpData.EMAIL;
+
+    if (otpData.STATUS !== 'PENDING') {
+        return { valid: false, reason: 'OTP has already been processed or expired.', email: userEmail };
+    }
+
+    if (new Date() > new Date(otpData.EXPIRES_AT)) {
+        await connection.execute(`UPDATE OTPS SET status = 'FAILED' WHERE otp_id = :1`, [otpData.OTP_ID], { autoCommit: true });
+        return { valid: false, reason: 'OTP Expired', email: userEmail };
+    }
+
+    if (otpData.ATTEMPTS >= 3) {
+        await connection.execute(`UPDATE OTPS SET status = 'FAILED' WHERE otp_id = :1`, [otpData.OTP_ID], { autoCommit: true });
+        return { valid: false, reason: 'Maximum OTP attempts reached.', email: userEmail };
+    }
+
+    const isMatch = await bcrypt.compare(otpCode, otpData.OTP_HASH);
+
+    if (!isMatch) {
+        const newAttempts = otpData.ATTEMPTS + 1;
+        let newStatus = 'PENDING';
+        if (newAttempts >= 3) newStatus = 'FAILED';
+
+        await connection.execute(
+            `UPDATE OTPS SET attempts = :attempts, status = :st WHERE otp_id = :otp_id`,
+            { attempts: newAttempts, st: newStatus, otp_id: otpData.OTP_ID },
+            { autoCommit: true }
+        );
+        return { valid: false, reason: 'Incorrect OTP', attemptsLeft: 3 - newAttempts, email: userEmail };
+    }
+
+    // Match success
+    await connection.execute(
+        `UPDATE OTPS SET status = 'SUCCESS' WHERE otp_id = :otp_id`,
+        { otp_id: otpData.OTP_ID },
+        { autoCommit: true }
+    );
+    return { valid: true, email: userEmail };
+};
+
 module.exports = {
-    verifyOtp
+    verifyOtp,
+    verifyManagerOtp
 };

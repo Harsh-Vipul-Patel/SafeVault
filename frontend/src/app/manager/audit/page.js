@@ -84,7 +84,7 @@ export default function BranchAuditLog() {
                     ) : entries.map((e) => (
                         <div className={styles.tdRow} key={e.AUDIT_ID} style={{ gridTemplateColumns: '1.2fr 1fr 1.2fr 2fr 1fr' }}>
                             <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatTimestamp(e.CHANGED_AT)}</div>
-                            <div className={styles.idMono}>{e.CHANGED_BY}</div>
+                            <div className={styles.idMono}>{e.CHANGED_BY_NAME || e.CHANGED_BY}</div>
                             <div><span className={e.VIOLATION_FLAG === '1' ? styles.opChipRed : styles.opChip}>{e.OPERATION}</span></div>
                             <div style={{ fontSize: '12px' }}>{e.CHANGE_REASON || `${e.TABLE_NAME} → ${e.RECORD_ID}`}</div>
                             <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{e.TABLE_NAME}</div>

@@ -21,7 +21,13 @@ router.post('/generate', verifyToken, async (req, res) => {
 
         let query, binds;
 
-        if (req.user.role === 'TELLER' || req.user.role === 'BRANCH_MANAGER') {
+        if (req.body.forManager) {
+            // Manager is generating an OTP for themselves to authorize a high-risk action
+            query = `SELECT u.user_id, e.email, e.full_name FROM USERS u 
+                     JOIN EMPLOYEES e ON u.user_id = e.user_id 
+                     WHERE e.employee_id = :req_id`;
+            binds = { req_id: req.user.id };
+        } else if (req.user.role === 'TELLER' || req.user.role === 'BRANCH_MANAGER') {
             // Teller/Manager can generate OTP for a customer
             if (targetCustomerId) {
                 query = `SELECT u.user_id, c.email, c.full_name FROM USERS u 
@@ -48,13 +54,13 @@ router.post('/generate', verifyToken, async (req, res) => {
         const userCheck = await connection.execute(query, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
 
         if (userCheck.rows.length === 0) {
-            return res.status(404).json({ message: 'Target Customer profile not found.' });
+            return res.status(404).json({ message: req.body.forManager ? 'Manager profile not found.' : 'Target Customer profile not found.' });
         }
 
         const row = userCheck.rows[0];
         const realUserId = row.USER_ID;
         const email = row.EMAIL;
-        const fullName = row.FULL_NAME || 'Customer';
+        const fullName = row.FULL_NAME || 'User';
 
         if (!email) {
             return res.status(400).json({ message: 'No email address associated with the target profile.' });

@@ -13,14 +13,15 @@ import {
     Download,
     Calendar,
     Wallet,
-    Scale
+    Scale,
+    Handshake
 } from 'lucide-react';
 import styles from './page.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function ManagerDashboard() {
-    const [kpis, setKpis] = useState({ totalDeposits: 0, totalWithdrawals: 0, pendingApprovals: 0, newAccounts: 0 });
+    const [kpis, setKpis] = useState({ totalDeposits: 0, totalWithdrawals: 0, pendingApprovals: 0, pendingSettlements: 0, newAccounts: 0 });
     const [approvalPreview, setApprovalPreview] = useState([]);
     const [liveFeed, setLiveFeed] = useState({ transactions: [], flags: [] });
     const [loading, setLoading] = useState(true);
@@ -148,6 +149,15 @@ export default function ManagerDashboard() {
                     </div>
                     <div className={styles.kpiValue}>{kpis.pendingApprovals}</div>
                     <div className={styles.kpiTrendAlert}><Activity size={12} /> Awaiting Dual-Auth</div>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className={`${styles.kpiCardAlert} pearl-card`}>
+                    <div className={styles.kpiHeader}>
+                        <div className={styles.kpiLabelAlert}>PENDING SETTLEMENTS</div>
+                        <div className={styles.kpiIconAlert}><Handshake size={18} /></div>
+                    </div>
+                    <div className={styles.kpiValue}>{kpis.pendingSettlements}</div>
+                    <div className={styles.kpiTrendAlert}><Activity size={12} /> External Transfers</div>
                 </motion.div>
 
                 <motion.div variants={itemVariants} className={`${styles.kpiCard} pearl-card`}>

@@ -193,6 +193,17 @@ module.exports = {
      </ul>`
     ),
 
+    getRDOpenedEmail: (data) => brandedTemplate(
+        'Recurring Deposit Created',
+        `<p>Dear ${data.customer_name},</p>
+     <p>A new Recurring Deposit (ID: ${data.rd_id}) has been successfully opened.</p>
+     <ul>
+       <li>Monthly Instalment: ₹${data.amount}</li>
+       <li>Tenure: ${data.tenure} months</li>
+       <li>Interest Rate: ${data.rate}%</li>
+     </ul>`
+    ),
+
     getFDMaturedEmail: (data) => brandedTemplate(
         'Fixed Deposit Matured',
         `<p>Dear ${data.customer_name},</p>

@@ -80,6 +80,12 @@ router.get('/dashboard', verifyToken, requireRole(MANAGER_ROLES), async (req, re
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
 
+        const pendingSettlementsResult = await connection.execute(
+            `SELECT COUNT(*) AS total FROM PENDING_EXTERNAL_TRANSFERS WHERE status = 'PENDING'`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
         console.log('Running newAccQuery...');
         // KPI: New Accounts (today)
         const newAccounts = await connection.execute(
@@ -101,15 +107,20 @@ router.get('/dashboard', verifyToken, requireRole(MANAGER_ROLES), async (req, re
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
 
-        // Dual Approval Queue preview (top 3)
+        // Dual Approval Queue & Settlements preview (top 5)
         const approvalPreview = await connection.execute(
-            `SELECT RAWTOHEX(q.queue_id) AS queue_id, q.operation_type, q.status, q.created_at, q.payload_json,
+            `SELECT RAWTOHEX(q.queue_id) AS queue_id, q.operation_type, q.status, CAST(q.created_at AS TIMESTAMP(6)) AS created_at,
                     u.username AS requested_by_name
              FROM DUAL_APPROVAL_QUEUE q
              LEFT JOIN USERS u ON q.requested_by = u.user_id
              WHERE q.status = 'PENDING'
-             ORDER BY q.created_at ASC
-             FETCH FIRST 3 ROWS ONLY`,
+             UNION ALL
+             SELECT RAWTOHEX(p.transfer_id) AS queue_id, 'EXTERNAL_TRANSFER' AS operation_type, p.status, CAST(p.initiated_at AS TIMESTAMP(6)) AS created_at,
+                    p.initiated_by AS requested_by_name
+             FROM PENDING_EXTERNAL_TRANSFERS p
+             WHERE p.status = 'PENDING'
+             ORDER BY created_at ASC
+             FETCH FIRST 5 ROWS ONLY`,
             {},
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
@@ -119,6 +130,7 @@ router.get('/dashboard', verifyToken, requireRole(MANAGER_ROLES), async (req, re
                 totalDeposits: deposits.rows[0]?.TOTAL || 0,
                 totalWithdrawals: withdrawals.rows[0]?.TOTAL || 0,
                 pendingApprovals: pendingApprovals.rows[0]?.TOTAL || 0,
+                pendingSettlements: pendingSettlementsResult.rows[0]?.TOTAL || 0,
                 newAccounts: newAccounts.rows[0]?.TOTAL || 0
             },
             approvalPreview: approvalPreview.rows,
@@ -209,39 +221,22 @@ router.post('/approvals/:id/:action', verifyToken, requireRole(MANAGER_ROLES), a
 
         const newStatus = action.toLowerCase() === 'approve' ? 'APPROVED' : 'REJECTED';
 
-        await connection.execute(
-            `UPDATE DUAL_APPROVAL_QUEUE
-             SET status = :newStatus,
-                 reviewed_by = :reviewer,
-                 reviewed_at = SYSTIMESTAMP,
-                 review_note = :note
-             WHERE queue_id = :queueId AND status = 'PENDING'`,
-            {
-                newStatus,
-                reviewer: employeeId,
-                note: note || null,
-                queueId: id
-            },
-            { autoCommit: true }
-        );
+        if (action.toLowerCase() === 'approve') {
+            await connection.execute(
+                `BEGIN sp_approve_dual_queue(:queueId, :reviewer, :note); END;`,
+                { queueId: id, reviewer: employeeId, note: note || null },
+                { autoCommit: true }
+            );
+        } else {
+            await connection.execute(
+                `BEGIN sp_reject_dual_queue(:queueId, :reviewer, :note); END;`,
+                { queueId: id, reviewer: employeeId, note: note || null },
+                { autoCommit: true }
+            );
+        }
 
-        // Managers use employee_id; the current query in dispatchEmail only joins with CUSTOMERS.
-        // For now, we'll keep it as is or update dispatchEmail to be more generic.
+        // Process pending notifications
         await processPendingNotifications(req.user.id, connection, false).catch(e => console.error('Manager Notif Error:', e));
-
-        // Log audit entry
-        await connection.execute(
-            `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, new_value_json, change_reason)
-             VALUES ('DUAL_APPROVAL_QUEUE', :recordId, :op, :changedBy, SYSTIMESTAMP, :newVal, :reason)`,
-            {
-                recordId: id,
-                op: 'QUEUE_' + newStatus,
-                changedBy: employeeId,
-                newVal: JSON.stringify({ status: newStatus }),
-                reason: note || ('Queue item ' + action.toLowerCase() + 'd by manager')
-            },
-            { autoCommit: true }
-        );
 
         if (newStatus === 'APPROVED') {
             // Fetch queue item to check operation type and payload
@@ -415,10 +410,14 @@ router.get('/accounts', verifyToken, requireRole(MANAGER_ROLES), async (req, res
 // ============================================================
 router.post('/accounts/:id/status', verifyToken, requireRole(MANAGER_ROLES), async (req, res) => {
     const { id } = req.params;
-    const { newStatus, reason } = req.body;
+    const { newStatus, reason, otpCode } = req.body;
     const validStatuses = ['ACTIVE', 'FROZEN', 'CLOSED', 'DORMANT'];
     if (!validStatuses.includes(newStatus)) {
         return res.status(400).json({ message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') });
+    }
+
+    if (!reason || reason.trim() === '') {
+        return res.status(400).json({ message: 'A reason must be provided for status change.' });
     }
 
     let connection;
@@ -428,22 +427,71 @@ router.post('/accounts/:id/status', verifyToken, requireRole(MANAGER_ROLES), asy
         const managerInfo = await getManagerBranchId(connection, managerId);
         const employeeId = managerInfo?.EMPLOYEE_ID || managerId;
 
-        // Get old status for audit
+        // Get old status and customer details
         const oldResult = await connection.execute(
-            `SELECT status, balance FROM ACCOUNTS WHERE account_id = :aid`,
+            `SELECT a.status, a.balance, a.customer_id, c.email, c.full_name 
+             FROM ACCOUNTS a 
+             JOIN CUSTOMERS c ON a.customer_id = c.customer_id 
+             WHERE a.account_id = :aid`,
             { aid: id },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
-        const oldStatus = oldResult.rows[0]?.STATUS;
-        if (!oldStatus) return res.status(404).json({ message: 'Account not found.' });
+        const accountData = oldResult.rows[0];
+        if (!accountData) return res.status(404).json({ message: 'Account not found.' });
+
+        const oldStatus = accountData.STATUS;
+        const customerId = accountData.CUSTOMER_ID;
+        const customerEmail = accountData.EMAIL;
+        const customerName = accountData.FULL_NAME;
+
+        // Only require OTP if freezing or unfreezing
+        if ((newStatus === 'FROZEN' && oldStatus !== 'FROZEN') || (newStatus === 'ACTIVE' && oldStatus === 'FROZEN')) {
+            if (!otpCode) {
+                return res.status(400).json({ message: 'Manager OTP is required to freeze or unfreeze this account.' });
+            }
+
+            const { verifyManagerOtp } = require('../utils/otpHelper');
+            const otpResult = await verifyManagerOtp(connection, req.user.id, otpCode, 'ACCOUNT_STATUS_CHANGE');
+            
+            if (!otpResult.valid) {
+                return res.status(401).json({ message: otpResult.reason || 'Invalid OTP.' });
+            }
+        }
 
         await connection.execute(
-            `UPDATE ACCOUNTS SET status = :newStatus ${newStatus === 'CLOSED' ? ', closed_date = SYSDATE' : ''} WHERE account_id = :aid`,
-            { newStatus, aid: id },
+            `BEGIN sp_set_account_status(:aid, :newStatus, :manager, :reason); END;`,
+            { aid: id, newStatus, manager: employeeId, reason: reason },
             { autoCommit: true }
         );
 
-        // Audit log
+        // Send email notification if freezing or unfreezing
+        if (newStatus === 'FROZEN' && oldStatus !== 'FROZEN' && customerEmail) {
+            const emailHtml = `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                    <h2>Account Frozen Notice</h2>
+                    <p>Dear ${customerName},</p>
+                    <p>Your account (ID: ${id}) has been frozen by the branch manager.</p>
+                    <p><strong>Reason:</strong> ${reason}</p>
+                    <p>While your account is frozen, you will not be able to perform any transactions.</p>
+                    <p>Please contact your home branch immediately for further assistance.</p>
+                    <p>Regards,<br>Suraksha Bank Management</p>
+                </div>
+            `;
+            await sendEmail(customerEmail, 'URGENT: Your Account has been Frozen - Suraksha Bank', emailHtml, [], true).catch(e => console.error('Freeze Email Error:', e));
+        } else if (newStatus === 'ACTIVE' && oldStatus === 'FROZEN' && customerEmail) {
+            const emailHtml = `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                    <h2>Account Unfrozen Notice</h2>
+                    <p>Dear ${customerName},</p>
+                    <p>Good news! Your account (ID: ${id}) is active again.</p>
+                    <p><strong>Manager Note:</strong> ${reason}</p>
+                    <p>You may now resume normal banking operations.</p>
+                    <p>Regards,<br>Suraksha Bank Management</p>
+                </div>
+            `;
+            await sendEmail(customerEmail, 'Account Status Restored - Suraksha Bank', emailHtml, [], true).catch(e => console.error('Unfreeze Email Error:', e));
+        }
+
         res.json({ message: `Account ${id} status changed to ${newStatus}.`, accountId: id, status: newStatus });
     } catch (err) {
         console.error('Account Status Error:', err);
@@ -505,30 +553,25 @@ router.post('/settlement/:id/:action', verifyToken, requireRole(MANAGER_ROLES), 
         const employeeId = managerInfo?.EMPLOYEE_ID || managerId;
 
         if (action.toLowerCase() === 'settle') {
-            const ref = 'SETT-' + Date.now().toString().slice(-8);
             await connection.execute(
-                `UPDATE PENDING_EXTERNAL_TRANSFERS
-                 SET status = 'SETTLED', settled_at = SYSTIMESTAMP, settlement_reference = :ref
-                 WHERE transfer_id = :tid AND status = 'PENDING'`,
-                { ref, tid: id },
+                `BEGIN sp_approve_external_transfer(:tid, :manager); END;`,
+                { tid: id, manager: employeeId },
                 { autoCommit: true }
             );
 
-            // Audit
-            await connection.execute(
-                `INSERT INTO AUDIT_LOG (table_name, record_id, operation, changed_by, changed_at, new_value_json, change_reason)
-                 VALUES ('PENDING_EXTERNAL_TRANSFERS', :rid, 'SETTLEMENT', :cb, SYSTIMESTAMP, :nv, :reason)`,
-                { rid: id, cb: employeeId, nv: JSON.stringify({ status: 'SETTLED', ref }), reason: reason || 'Settled by manager' },
-                { autoCommit: true }
+            // Fetch reference to return it
+            const refResult = await connection.execute(
+                `SELECT settlement_reference FROM PENDING_EXTERNAL_TRANSFERS WHERE transfer_id = :tid`,
+                { tid: id },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
             );
+            const ref = refResult.rows[0]?.SETTLEMENT_REFERENCE;
 
             res.json({ message: 'Transfer settled successfully.', transferId: id, reference: ref });
         } else {
             await connection.execute(
-                `UPDATE PENDING_EXTERNAL_TRANSFERS
-                 SET status = 'REJECTED', rejected_at = SYSTIMESTAMP, rejection_reason = :reason
-                 WHERE transfer_id = :tid AND status = 'PENDING'`,
-                { reason: reason || 'Rejected by manager', tid: id },
+                `BEGIN sp_reject_external_transfer(:tid, :manager, :reason); END;`,
+                { tid: id, manager: employeeId, reason: reason || 'Rejected by manager' },
                 { autoCommit: true }
             );
 
@@ -554,6 +597,16 @@ router.get('/audit', verifyToken, requireRole(MANAGER_ROLES), async (req, res) =
         const maxRows = Math.min(parseInt(limit) || 50, 200);
         let whereClause = '1=1';
         const binds = {};
+        const managerId = req.user?.id || 'MANAGER_DEFAULT';
+
+        // Filter by branch for BRANCH_MANAGER, SYSTEM_ADMIN sees everything
+        if (req.user.role !== 'SYSTEM_ADMIN') {
+            const managerInfo = await getManagerBranchId(connection, managerId);
+            if (managerInfo?.BRANCH_ID) {
+                whereClause += ` AND (a.changed_by IN (SELECT employee_id FROM EMPLOYEES WHERE branch_id = :manager_branch) OR a.changed_by = 'SYSTEM')`;
+                binds.manager_branch = managerInfo.BRANCH_ID;
+            }
+        }
 
         if (date) {
             whereClause += ` AND TRUNC(a.changed_at) = TO_DATE(:audit_date, 'YYYY-MM-DD')`;
@@ -563,8 +616,10 @@ router.get('/audit', verifyToken, requireRole(MANAGER_ROLES), async (req, res) =
         const result = await connection.execute(
             `SELECT a.audit_id, a.table_name, a.record_id, a.operation,
                     a.changed_by, a.changed_at, a.old_value_json, a.new_value_json,
-                    a.change_reason, a.violation_flag
+                    a.change_reason, a.violation_flag,
+                    NVL(e.full_name, a.changed_by) AS changed_by_name
              FROM AUDIT_LOG a
+             LEFT JOIN EMPLOYEES e ON a.changed_by = e.employee_id
              WHERE ${whereClause}
              ORDER BY a.changed_at DESC
              FETCH FIRST :maxRows ROWS ONLY`,
@@ -796,17 +851,35 @@ router.get('/mis/summary', verifyToken, requireRole(MANAGER_ROLES), async (req, 
         const managerInfo = await getManagerBranchId(connection, req.user.id);
         const branchId = managerInfo?.BRANCH_ID;
 
-        const income = await connection.execute(
-            `SELECT SUM(total_interest_income) AS total FROM v_loan_interest_income ${branchId ? 'WHERE branch_id = :bid' : ''}`,
-            branchId ? { bid: branchId } : {},
-            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        // Generate Branch MIS using stored procedure
+        const fromDate = new Date();
+        fromDate.setMonth(fromDate.getMonth() - 1); // Default to last 1 month
+        const toDate = new Date();
+
+        const result = await connection.execute(
+            `BEGIN sp_generate_branch_mis(:branchId, :fromDate, :toDate, :cursor); END;`,
+            {
+                branchId: branchId || 'GLOBAL', // If no branch, use GLOBAL or what fits the logic
+                fromDate: fromDate,
+                toDate: toDate,
+                cursor: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT }
+            }
         );
 
-        const expense = await connection.execute(
-            `SELECT SUM(projected_interest_liability) AS total FROM v_fd_interest_expense ${branchId ? 'WHERE branch_id = :bid' : ''}`,
-            branchId ? { bid: branchId } : {},
-            { outFormat: oracledb.OUT_FORMAT_OBJECT }
-        );
+        const resultSet = result.outBinds.cursor;
+        let misData = { INTEREST_INCOME: 0, INTEREST_EXPENSE: 0, FEE_INCOME: 0 };
+
+        if (resultSet) {
+            const row = await resultSet.getRow();
+            if (row) {
+                misData = {
+                    INTEREST_INCOME: row[0],
+                    INTEREST_EXPENSE: row[1],
+                    FEE_INCOME: row[2]
+                };
+            }
+            await resultSet.close();
+        }
 
         const liquidity = await connection.execute(
             `SELECT * FROM v_branch_liquidity ${branchId ? 'WHERE branch_id = :bid' : ''}`,
@@ -815,8 +888,9 @@ router.get('/mis/summary', verifyToken, requireRole(MANAGER_ROLES), async (req, 
         );
 
         res.json({
-            interestIncome: income.rows[0]?.TOTAL || 0,
-            projectedInterestExpense: expense.rows[0]?.TOTAL || 0,
+            interestIncome: misData.INTEREST_INCOME || 0,
+            projectedInterestExpense: misData.INTEREST_EXPENSE || 0,
+            feeIncome: misData.FEE_INCOME || 0,
             liquidity: liquidity.rows
         });
     } catch (err) {

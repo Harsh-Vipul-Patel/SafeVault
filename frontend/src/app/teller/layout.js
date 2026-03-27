@@ -45,6 +45,30 @@ export default function TellerLayout({ children }) {
         router.push('/login');
     };
 
+    const [user, setUser] = useState({ name: 'Loading...', role: 'TELLER', branch: '---' });
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('suraksha_user');
+        if (storedUser) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                if (!['TELLER', 'BRANCH_MANAGER', 'SYSTEM_ADMIN'].includes(parsedUser.role)) {
+                    router.push('/login'); // Redirect unauthorized users
+                } else {
+                    setUser({
+                        name: parsedUser.name || parsedUser.username,
+                        role: parsedUser.role,
+                        branch: 'MUM-003' // Default branch for now
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to parse user", e);
+            }
+        } else {
+            router.push('/login');
+        }
+    }, [router]);
+
     // Scroll active link into view
     useEffect(() => {
         const activeLink = document.querySelector(`.${styles.activeLink}`);
@@ -104,11 +128,11 @@ export default function TellerLayout({ children }) {
                         className={styles.avatar}
                         whileHover={{ scale: 1.05, rotate: -5 }}
                     >
-                        PD
+                        {user.name.charAt(0).toUpperCase()}
                     </motion.div>
                     <div className={styles.empInfo}>
-                        <div className={styles.empName}>Priya Desai</div>
-                        <div className={styles.empRole}>TELLER · MUM-003</div>
+                        <div className={styles.empName}>{user.name}</div>
+                        <div className={styles.empRole}>{user.role} · {user.branch}</div>
                     </div>
                 </div>
 

@@ -11,6 +11,13 @@ export default function AccountLifecycle() {
     const [actionLoading, setActionLoading] = useState(null);
     const [success, setSuccess] = useState(null);
 
+    // Modal state for Freeze/Unfreeze OTP & Reason
+    const [modalConfig, setModalConfig] = useState(null);
+    const [otp, setOtp] = useState('');
+    const [reason, setReason] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [modalError, setModalError] = useState('');
+
     useEffect(() => {
         fetchAccounts();
     }, []);
@@ -33,9 +40,63 @@ export default function AccountLifecycle() {
         }
     };
 
-    const handleStatusChange = async (accountId, newStatus) => {
+    const initiateStatusChange = (accountId, newStatus) => {
+        if (newStatus === 'FROZEN' || newStatus === 'ACTIVE') {
+            setModalConfig({ accountId, newStatus });
+            setOtp('');
+            setReason('');
+            setOtpSent(false);
+            setModalError('');
+        } else {
+            handleStatusChange(accountId, newStatus, 'Status changed by manager', null);
+        }
+    };
+
+    const sendOTP = async () => {
+        if (!reason.trim()) {
+            setModalError('A reason must be provided before generating the OTP.');
+            return;
+        }
+        setModalError('');
+        try {
+            const token = localStorage.getItem('suraksha_token');
+            const res = await fetch(`${API}/api/otp/generate`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    purpose: 'ACCOUNT_STATUS_CHANGE', 
+                    forManager: true 
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to send OTP');
+            setOtpSent(true);
+            setSuccess('OTP sent to your manager email successfully.');
+        } catch (err) {
+            setModalError(err.message);
+        }
+    };
+
+    const submitStatusChangeWithOTP = async () => {
+        if (!reason.trim()) {
+            setModalError('A reason must be provided.');
+            return;
+        }
+        if (!otp.trim()) {
+            setModalError('OTP is required.');
+            return;
+        }
+        await handleStatusChange(modalConfig.accountId, modalConfig.newStatus, reason, otp);
+    };
+
+    const handleStatusChange = async (accountId, newStatus, changeReason, otpCode) => {
         setActionLoading(accountId);
         setSuccess(null);
+        setError(null);
+        setModalConfig(null);
         try {
             const token = localStorage.getItem('suraksha_token');
             const res = await fetch(`${API}/api/manager/accounts/${accountId}/status`, {
@@ -44,7 +105,7 @@ export default function AccountLifecycle() {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ newStatus, reason: `Status changed to ${newStatus} via Manager Portal` })
+                body: JSON.stringify({ newStatus, reason: changeReason, otpCode })
             });
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
@@ -111,15 +172,15 @@ export default function AccountLifecycle() {
                                 ) : (
                                     <>
                                         {a.STATUS !== 'ACTIVE' && (
-                                            <button className={styles.btnApprove} style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleStatusChange(a.ACCOUNT_ID, 'ACTIVE')}>
+                                            <button className={styles.btnApprove} style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => initiateStatusChange(a.ACCOUNT_ID, 'ACTIVE')}>
                                                 {a.STATUS === 'FROZEN' ? 'UNFREEZE' : 'ACTIVATE'}
                                             </button>
                                         )}
                                         {a.STATUS !== 'FROZEN' && a.STATUS !== 'CLOSED' && (
-                                            <button className={styles.btnReject} style={{ padding: '6px 10px', fontSize: '11px', borderColor: '#5B9BFF', color: '#5B9BFF' }} onClick={() => handleStatusChange(a.ACCOUNT_ID, 'FROZEN')}>FREEZE</button>
+                                            <button className={styles.btnReject} style={{ padding: '6px 10px', fontSize: '11px', borderColor: '#5B9BFF', color: '#5B9BFF' }} onClick={() => initiateStatusChange(a.ACCOUNT_ID, 'FROZEN')}>FREEZE</button>
                                         )}
                                         {a.STATUS !== 'CLOSED' && (
-                                            <button className={styles.btnReject} style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleStatusChange(a.ACCOUNT_ID, 'CLOSED')}>CLOSE</button>
+                                            <button className={styles.btnReject} style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => initiateStatusChange(a.ACCOUNT_ID, 'CLOSED')}>CLOSE</button>
                                         )}
                                     </>
                                 )}
@@ -128,6 +189,57 @@ export default function AccountLifecycle() {
                     ))}
                 </div>
             </div>
+
+            {/* OTP Modal */}
+            {modalConfig && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC' }}>
+                        <h3 style={{ marginBottom: '16px' }}>Authenticate {modalConfig.newStatus === 'FROZEN' ? 'Freeze' : 'Unfreeze'} Action</h3>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '24px' }}>
+                            This high-risk action requires Manager Authentication. Generate and verify your OTP to proceed.
+                        </p>
+
+                        {modalError && <div style={{ color: '#F87171', fontSize: '13px', marginBottom: '16px' }}>{modalError}</div>}
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: '#CBD5E1' }}>Reason for {modalConfig.newStatus === 'FROZEN' ? 'Freezing' : 'Unfreezing'}</label>
+                            <input 
+                                value={reason} 
+                                onChange={e => setReason(e.target.value)} 
+                                disabled={otpSent}
+                                style={{ width: '100%', padding: '10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#FFF' }}
+                                placeholder="Enter reason for audit"
+                            />
+                        </div>
+
+                        {!otpSent ? (
+                            <button onClick={sendOTP} className={styles.btnApprove} style={{ width: '100%', padding: '12px', marginBottom: '16px' }}>Generate Manager OTP</button>
+                        ) : (
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: '#CBD5E1' }}>Enter 6-Digit Manager OTP (Sent to Email)</label>
+                                <input 
+                                    value={otp} 
+                                    onChange={e => setOtp(e.target.value)} 
+                                    maxLength={6}
+                                    style={{ width: '100%', padding: '10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#FFF', letterSpacing: '4px', textAlign: 'center', fontSize: '18px' }}
+                                    placeholder="000000"
+                                />
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button onClick={() => setModalConfig(null)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                            <button 
+                                onClick={submitStatusChangeWithOTP} 
+                                disabled={!otpSent}
+                                style={{ flex: 1, padding: '10px', background: otpSent ? '#3B82F6' : '#1E3A8A', color: '#FFF', border: 'none', borderRadius: '6px', cursor: otpSent ? 'pointer' : 'not-allowed' }}
+                            >
+                                Confirm Action
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

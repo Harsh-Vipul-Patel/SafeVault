@@ -140,6 +140,9 @@ BEGIN
         p_leaves_count, p_teller_id
     ) RETURNING book_id INTO v_book_id;
 
+    -- 5. Deduct Fee
+    sp_deduct_service_charges(p_account_id, 'CHEQUE_BOOK_ISSUE');
+
     -- 6. Notification
     DECLARE
         v_cust_name VARCHAR2(100);

@@ -822,6 +822,10 @@ router.post('/deposits/open-fd', verifyToken, requireRole(['TELLER', 'BRANCH_MAN
             { cust_id: customerId, acc_id: linkedAccountId, amt: Number(amount), tenure: Number(tenureMonths), rate: rateType, teller: getTellerId(req) },
             { autoCommit: true }
         );
+        
+        if (customerId) {
+            processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error (FD):', e));
+        }
         res.json({ message: 'Fixed Deposit opened successfully.' });
     } catch (err) {
         const error = mapOracleError(err);
@@ -842,6 +846,10 @@ router.post('/deposits/open-rd', verifyToken, requireRole(['TELLER', 'BRANCH_MAN
             { cust_id: customerId, acc_id: linkedAccountId, amt: Number(instalmentAmount), tenure: Number(tenureMonths), teller: getTellerId(req) },
             { autoCommit: true }
         );
+
+        if (customerId) {
+            processPendingNotifications(customerId, connection, false).catch(e => console.error('Cust Notif Error (RD):', e));
+        }
         res.json({ message: 'Recurring Deposit opened successfully.' });
     } catch (err) {
         const error = mapOracleError(err);
@@ -924,10 +932,12 @@ router.post('/cheque/issue', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
 
 // POST /api/teller/cheque/stop
 router.post('/cheque/stop', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']), async (req, res) => {
-    const { chequeNumber, accountId, reason, customerOtpCode } = req.body;
+    let { chequeNumber, accountId, reason, customerOtpCode } = req.body;
     if (!chequeNumber || !accountId || !customerOtpCode) {
         return res.status(400).json({ message: 'chequeNumber, accountId and customerOtpCode are required.' });
     }
+    chequeNumber = chequeNumber.toString().trim().padStart(6, '0');
+    accountId = accountId.trim();
 
     let connection;
     try {
@@ -986,7 +996,11 @@ router.post('/cheque/stop', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER'
 
 // POST /api/teller/cheque/clear
 router.post('/cheque/clear', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']), async (req, res) => {
-    const { chequeNumber, draweeAccountId, payeeAccountId, amount } = req.body;
+    let { chequeNumber, draweeAccountId, payeeAccountId, amount } = req.body;
+    chequeNumber = chequeNumber ? chequeNumber.toString().trim().padStart(6, '0') : '';
+    draweeAccountId = draweeAccountId ? draweeAccountId.trim() : '';
+    payeeAccountId = payeeAccountId ? payeeAccountId.trim() : '';
+    
     let connection;
     try {
         connection = await oracledb.getConnection();

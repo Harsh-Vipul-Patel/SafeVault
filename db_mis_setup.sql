@@ -78,7 +78,7 @@ CREATE OR REPLACE PROCEDURE sp_deduct_service_charges (
     v_fee_amt NUMBER;
     v_teller_id VARCHAR2(20) := 'SYSTEM_FEE';
 BEGIN
-    SELECT amount INTO v_fee_amt FROM FEE_SCHEDULE WHERE fee_type = p_fee_type;
+    SELECT fee_amount INTO v_fee_amt FROM FEE_SCHEDULE WHERE fee_id = p_fee_type;
     
     IF v_fee_amt > 0 THEN
         sp_withdraw(p_account_id, v_fee_amt, v_teller_id);

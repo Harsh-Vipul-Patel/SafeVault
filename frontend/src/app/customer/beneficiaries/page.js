@@ -56,6 +56,27 @@ export default function CustomerBeneficiaries() {
         }
     };
 
+    const handleActivate = async (id) => {
+        setActionMsg({ type: 'info', text: 'Activating beneficiary...' });
+        try {
+            const token = getToken();
+            const res = await fetch(`${API}/api/customer/beneficiaries/activate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ beneficiaryId: id })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setActionMsg({ type: 'success', text: data.message });
+                fetchBenes();
+            } else {
+                setActionMsg({ type: 'error', text: data.message });
+            }
+        } catch (err) {
+            setActionMsg({ type: 'error', text: 'Failed to activate beneficiary.' });
+        }
+    };
+
     if (loading && beneficiaries.length === 0) return <div className={styles.loadingState}>Loading beneficiaries...</div>;
 
     return (
@@ -124,14 +145,22 @@ export default function CustomerBeneficiaries() {
                         ) : beneficiaries.map((b, i) => (
                             <tr key={b.BENE_ID || i}>
                                 <td style={{ fontWeight: '600' }}>{b.NICKNAME}</td>
-                                <td>{b.FULL_NAME}</td>
+                                <td>{b.BENEFICIARY_NAME}</td>
                                 <td>{b.BANK_NAME}</td>
                                 <td style={{ fontFamily: 'DM Mono' }}>{b.ACCOUNT_NUMBER}</td>
                                 <td style={{ fontFamily: 'DM Mono' }}>{b.IFSC_CODE}</td>
                                 <td>
-                                    <span className={b.STATUS === 'ACTIVE' ? styles.statusDone : styles.statusPending}>
-                                        {b.STATUS}
+                                    <span style={{ display: 'inline-block', marginBottom: b.ACTIVATION_STATUS === 'PENDING' ? '8px' : '0' }} className={b.ACTIVATION_STATUS === 'ACTIVE' ? styles.statusDone : styles.statusPending}>
+                                        {b.ACTIVATION_STATUS}
                                     </span>
+                                    {b.ACTIVATION_STATUS === 'PENDING' && (
+                                        <button 
+                                            onClick={() => handleActivate(b.BENEFICIARY_ID)}
+                                            style={{ display: 'block', padding: '4px 8px', fontSize: '12px', background: 'rgba(52,211,153,0.2)', color: '#34D399', border: '1px solid #34D399', borderRadius: '4px', cursor: 'pointer' }}
+                                        >
+                                            Activate
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

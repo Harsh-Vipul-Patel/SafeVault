@@ -42,6 +42,30 @@ export default function ManagerLayout({ children }) {
         router.push('/login');
     };
 
+    const [user, setUser] = useState({ name: 'Loading...', role: 'BRANCH_MANAGER', branch: '---' });
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('suraksha_user');
+        if (storedUser) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                if (!['BRANCH_MANAGER', 'SYSTEM_ADMIN'].includes(parsedUser.role)) {
+                    router.push('/login'); // Redirect unauthorized users
+                } else {
+                    setUser({
+                        name: parsedUser.name || parsedUser.username,
+                        role: parsedUser.role,
+                        branch: 'MUM-003' // Default branch for now
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to parse user", e);
+            }
+        } else {
+            router.push('/login');
+        }
+    }, [router]);
+
     // Scroll active link into view
     useEffect(() => {
         const activeLink = document.querySelector(`.${styles.activeNav}`);
@@ -100,11 +124,11 @@ export default function ManagerLayout({ children }) {
                         whileHover={{ scale: 1.1, rotate: 5 }}
                         transition={{ type: "spring", stiffness: 400, damping: 10 }}
                     >
-                        RS
+                        {user.name.charAt(0).toUpperCase()}
                     </motion.div>
                     <div className={styles.info}>
-                        <div className={styles.name}>R.K. Sharma</div>
-                        <div className={styles.role}>BRANCH MANAGER - Lvl 4</div>
+                        <div className={styles.name}>{user.name}</div>
+                        <div className={styles.role}>{user.role}</div>
                     </div>
                 </div>
 
