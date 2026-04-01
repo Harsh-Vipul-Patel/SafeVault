@@ -4,7 +4,7 @@ const oracledb = require('oracledb');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { processPendingNotifications } = require('../lib/dispatchEmail');
 
-const LOAN_ROLES = ['LOAN_MANAGER', 'BRANCH_MANAGER', 'SYSTEM_ADMIN'];
+const LOAN_ROLES = ['LOAN_MANAGER', 'BRANCH_MANAGER'];
 
 async function getEmployeeId(connection, userId) {
     const result = await connection.execute(

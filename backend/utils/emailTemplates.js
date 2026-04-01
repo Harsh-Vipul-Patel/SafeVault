@@ -481,7 +481,60 @@ const templates = {
             false,
             'glow-sky'
         );
-    }
+    },
+    welcome: (name, { username, password, accountId, customerId }) => emailLayout(
+        'Welcome to Safe Vault',
+        'Your account has been created.',
+        `
+        <div class="amount-section">
+            <div class="stamp-container" style="top: 20px; right: 20px;">
+                <svg width="48" height="48" viewBox="0 0 52 52" style="filter: drop-shadow(0 0 12px rgba(52,211,153,0.4));">
+                    <circle cx="26" cy="26" r="23" fill="none" stroke="${colors.success}" stroke-width="1.5" />
+                    <polyline points="16,27 22,33 36,19" fill="none" stroke="${colors.success}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <div class="status-pill credit">ACCOUNT ACTIVATED</div>
+            <h2 style="color: ${colors.white}; margin: 10px 0; font-family: 'Cormorant Garamond', serif; font-size: 24px;">Welcome to Safe Vault</h2>
+            <p style="font-size: 13px; color: ${colors.cream2}; line-height: 1.6; padding: 0 20px;">Hello <b>${name}</b>,<br>Your Suraksha Bank account has been successfully created. Below are your secure login credentials.</p>
+        </div>
+
+        <div class="tear-line"></div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <tr class="data-row">
+                    <td class="data-key">Account ID</td>
+                    <td class="data-val val-highlight">${accountId || '—'}</td>
+                </tr>
+                <tr class="data-row">
+                    <td class="data-key">Customer ID</td>
+                    <td class="data-val">${customerId || '—'}</td>
+                </tr>
+            </table>
+
+            <div style="background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.15); border-radius: 10px; padding: 20px; margin-top: 10px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: ${colors.success}; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px;">🔑 YOUR LOGIN CREDENTIALS</div>
+                <table class="data-table" style="margin-bottom: 0;">
+                    <tr class="data-row">
+                        <td class="data-key">Username</td>
+                        <td class="data-val" style="color: ${colors.gold2}; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 13px;">${username}</td>
+                    </tr>
+                    <tr class="data-row">
+                        <td class="data-key">Password</td>
+                        <td class="data-val" style="color: ${colors.success}; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 13px;">${password}</td>
+                    </tr>
+                </table>
+            </div>
+            <p style="font-size: 11px; color: ${colors.danger}; padding: 12px 0 0; text-align: center; font-weight: 600;">⚠ Please change your password immediately after first login.</p>
+        </div>
+
+        <div class="btn-container">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="btn">Login to Safe Vault →</a>
+        </div>
+        `,
+        true,
+        'glow-success'
+    )
 };
 
 module.exports = templates;

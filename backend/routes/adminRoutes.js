@@ -12,6 +12,42 @@ const { verifyOtp } = require('../utils/otpHelper');
 router.use(verifyToken);
 router.use(requireRole(['SYSTEM_ADMIN']));
 
+// System admins can provision operational staff but cannot create elevated admin identities.
+const ADMIN_ASSIGNABLE_ROLES = ['TELLER', 'BRANCH_MANAGER', 'LOAN_MANAGER'];
+
+function buildIfscCandidate(branchId) {
+    const sanitized = String(branchId || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const suffix = sanitized.slice(-6).padStart(6, '0');
+    return `SAFE0${suffix}`;
+}
+
+function buildHashedIfscSuffix(branchId, salt = 0) {
+    const src = `${String(branchId || '').toUpperCase()}#${salt}`;
+    let hash = 0;
+    for (let i = 0; i < src.length; i++) {
+        hash = (hash * 31 + src.charCodeAt(i)) % 2176782336; // 36^6
+    }
+    return hash.toString(36).toUpperCase().padStart(6, '0').slice(-6);
+}
+
+async function generateUniqueBranchIfsc(connection, branchId) {
+    const candidates = [buildIfscCandidate(branchId)];
+    for (let salt = 0; salt < 5; salt++) {
+        candidates.push(`SAFE0${buildHashedIfscSuffix(branchId, salt)}`);
+    }
+
+    for (const ifsc of candidates) {
+        const exists = await connection.execute(
+            `SELECT 1 FROM BRANCHES WHERE ifsc_code = :ifsc FETCH FIRST 1 ROWS ONLY`,
+            { ifsc },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (exists.rows.length === 0) return ifsc;
+    }
+
+    throw new Error('Could not generate unique IFSC code for this branch.');
+}
+
 // GET /api/admin/monitor
 // Fetch DB sessions, active jobs, failed logins overview
 router.get('/monitor', async (req, res) => {
@@ -130,7 +166,8 @@ router.get('/branches', async (req, res) => {
     try {
         connection = await oracledb.getConnection();
         const result = await connection.execute(
-            `SELECT b.branch_id, b.branch_name, b.ifsc_code AS branch_code, b.address, b.city, b.state, b.is_active,
+            `SELECT b.branch_id, b.branch_name, b.ifsc_code AS branch_code, b.ifsc_code AS ifsc_code,
+                    b.address, b.city, b.state, b.is_active,
                     e.full_name AS manager_name
              FROM BRANCHES b
              LEFT JOIN EMPLOYEES e ON b.manager_emp_id = e.employee_id
@@ -148,48 +185,85 @@ router.get('/branches', async (req, res) => {
 // POST /api/admin/branches
 // Create a new branch + auto-create its bank pool account + generate pool password
 router.post('/branches', async (req, res) => {
-    const { branchId, branchName, ifscCode, address, city, state } = req.body;
+    const { branchId, branchName, address, city, state } = req.body;
 
-    if (!branchId || !branchName || !ifscCode) {
-        return res.status(400).json({ message: 'Branch ID, Name, and IFSC are required.' });
+    if (!branchId || !branchName) {
+        return res.status(400).json({ message: 'Branch ID and Name are required.' });
     }
 
     let connection;
     try {
         connection = await oracledb.getConnection();
 
+        // Check if branch already exists
+        const branchExists = await connection.execute(
+            `SELECT COUNT(*) AS cnt FROM BRANCHES WHERE branch_id = :id`,
+            { id: branchId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (branchExists.rows[0].CNT > 0) {
+            return res.status(409).json({ message: `Branch '${branchId}' already exists.` });
+        }
+
+        const autoIfscCode = await generateUniqueBranchIfsc(connection, branchId);
+
         // 1. Create the branch
         await connection.execute(
             `INSERT INTO BRANCHES (branch_id, branch_name, ifsc_code, address, city, state, is_active)
-             VALUES (:id, :name, :ifsc, :addr, :city, :state, '1')`,
+             VALUES (:id, :bname, :ifsc, :addr, :bcity, :bstate, '1')`,
             {
                 id: branchId,
-                name: branchName,
-                ifsc: ifscCode,
+                bname: branchName,
+                ifsc: autoIfscCode,
                 addr: address || '',
-                city: city || '',
-                state: state || ''
+                bcity: city || '',
+                bstate: state || ''
             }
         );
 
         // 2. Auto-create bank pool account for this branch
         const poolAccountId = 'ACC-BANK-' + branchId;
-        const poolAccountNumber = '999' + branchId.replace(/[^0-9]/g, '').padStart(15, '0').slice(0, 15);
-        await connection.execute(
-            `INSERT INTO ACCOUNTS (account_id, account_number, customer_id, account_type_id,
-                 home_branch_id, balance, status, opened_date, minimum_balance)
-             VALUES (:aid, :anum, 'CUST-BANK-001', 2, :bid, 100000000, 'ACTIVE', SYSDATE, 0)`,
-            { aid: poolAccountId, anum: poolAccountNumber, bid: branchId }
+        // Generate unique account number using hash of branchId + timestamp
+        const hashSrc = branchId + Date.now().toString();
+        let hashNum = 0;
+        for (let i = 0; i < hashSrc.length; i++) hashNum = (hashNum * 31 + hashSrc.charCodeAt(i)) >>> 0;
+        const poolAccountNumber = '999' + String(hashNum).padStart(15, '0').slice(0, 15);
+
+        // Check if pool account already exists
+        const poolExists = await connection.execute(
+            `SELECT COUNT(*) AS cnt FROM ACCOUNTS WHERE account_id = :aid`,
+            { aid: poolAccountId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
+        if (poolExists.rows[0].CNT === 0) {
+            await connection.execute(
+                `INSERT INTO ACCOUNTS (account_id, account_number, customer_id, account_type_id,
+                     home_branch_id, balance, status, opened_date, minimum_balance)
+                 VALUES (:aid, :anum, 'CUST-BANK-001', 2, :bid, 100000000, 'ACTIVE', SYSDATE, 0)`,
+                { aid: poolAccountId, anum: poolAccountNumber, bid: branchId }
+            );
+        }
 
         // 3. Generate random pool access password (shown ONCE to admin)
-        const poolPassword = crypto.randomBytes(6).toString('hex').toUpperCase(); // e.g., 'A3F8B2C1D9E4'
+        const poolPassword = crypto.randomBytes(6).toString('hex').toUpperCase();
         const passwordHash = await bcrypt.hash(poolPassword, 10);
-        await connection.execute(
-            `INSERT INTO POOL_ACCESS_CREDENTIALS (pool_account_id, password_hash)
-             VALUES (:paid, :phash)`,
-            { paid: poolAccountId, phash: passwordHash }
+
+        // Check if credentials already exist
+        const credExists = await connection.execute(
+            `SELECT COUNT(*) AS cnt FROM POOL_ACCESS_CREDENTIALS WHERE pool_account_id = :paid`,
+            { paid: poolAccountId }, { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
+        if (credExists.rows[0].CNT === 0) {
+            await connection.execute(
+                `INSERT INTO POOL_ACCESS_CREDENTIALS (pool_account_id, password_hash)
+                 VALUES (:paid, :phash)`,
+                { paid: poolAccountId, phash: passwordHash }
+            );
+        } else {
+            // Update existing credentials
+            await connection.execute(
+                `UPDATE POOL_ACCESS_CREDENTIALS SET password_hash = :phash WHERE pool_account_id = :paid`,
+                { phash: passwordHash, paid: poolAccountId }
+            );
+        }
 
         await connection.commit();
 
@@ -204,6 +278,7 @@ router.post('/branches', async (req, res) => {
         res.json({
             message: 'Branch created successfully with bank pool account.',
             branchId,
+            ifscCode: autoIfscCode,
             poolAccountId,
             poolAccessPassword: poolPassword,
             warning: 'SAVE THIS PASSWORD. It will NOT be shown again. Required to view pool account funds.'
@@ -225,6 +300,11 @@ router.post('/users', async (req, res) => {
 
     if (!username || !password || !fullName || !role || !branchId || !employeeId) {
         return res.status(400).json({ message: 'All fields are required.' });
+    }
+
+    const normalizedRole = String(role || '').trim().toUpperCase();
+    if (!ADMIN_ASSIGNABLE_ROLES.includes(normalizedRole)) {
+        return res.status(403).json({ message: 'SYSTEM_ADMIN can assign only TELLER, BRANCH_MANAGER, or LOAN_MANAGER roles.' });
     }
 
     let connection;
@@ -254,7 +334,7 @@ router.post('/users', async (req, res) => {
                 eid: employeeId,
                 bid: branchId,
                 fname: fullName,
-                role: role,
+                role: normalizedRole,
                 uid: userId
             }
         );
@@ -279,7 +359,15 @@ router.get('/config', async (req, res) => {
             `SELECT config_key, config_value, description, updated_at, updated_by FROM SYSTEM_CONFIG ORDER BY config_key`,
             {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
-        res.json({ config: result.rows });
+        // Normalize Oracle UPPERCASE column names to lowercase for frontend
+        const config = (result.rows || []).map(r => ({
+            config_key: r.CONFIG_KEY || r.config_key,
+            config_value: r.CONFIG_VALUE || r.config_value,
+            description: r.DESCRIPTION || r.description || '',
+            updated_at: r.UPDATED_AT || r.updated_at,
+            updated_by: r.UPDATED_BY || r.updated_by
+        }));
+        res.json({ config });
     } catch (err) {
         res.status(500).json({ message: err.message });
     } finally {
@@ -290,15 +378,24 @@ router.get('/config', async (req, res) => {
 // POST /api/admin/config
 router.post('/config', async (req, res) => {
     const { key, value } = req.body;
+    if (!key) {
+        return res.status(400).json({ message: 'Config key is required.' });
+    }
+
+    const normalizedKey = String(key).trim().toUpperCase();
+    if (normalizedKey.includes('INTEREST')) {
+        return res.status(403).json({ message: 'System Admin cannot modify interest rate configuration. Requires DBA.' });
+    }
+
     let connection;
     try {
         connection = await oracledb.getConnection();
         const result = await connection.execute(
             `UPDATE SYSTEM_CONFIG SET config_value = :val, updated_at = SYSDATE, updated_by = :user WHERE config_key = :k`,
-            { val: String(value), user: req.user.id, k: key }, { autoCommit: true }
+            { val: String(value), user: req.user.id, k: normalizedKey }, { autoCommit: true }
         );
         if (result.rowsAffected === 0) return res.status(404).json({ message: 'Config key not found.' });
-        res.json({ message: `Config ${key} updated successfully.` });
+        res.json({ message: `Config ${normalizedKey} updated successfully.` });
     } catch (err) {
         res.status(500).json({ message: err.message });
     } finally {
@@ -455,6 +552,104 @@ router.post('/fees/update', async (req, res) => {
 });
 
 // --- GLOBAL MIS ---
+// GET /api/admin/mis/summary
+router.get('/mis/summary', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        let interestIncome = 0;
+        let projectedInterestExpense = 0;
+        let feeIncome = 0;
+
+        // Preferred path: packaged MIS procedure if available.
+        try {
+            const fromDate = new Date();
+            fromDate.setMonth(fromDate.getMonth() - 1);
+            const toDate = new Date();
+            const result = await connection.execute(
+                `BEGIN sp_generate_branch_mis(:branchId, :fromDate, :toDate, :cursor); END;`,
+                {
+                    branchId: 'GLOBAL',
+                    fromDate,
+                    toDate,
+                    cursor: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT }
+                }
+            );
+
+            const resultSet = result.outBinds.cursor;
+            if (resultSet) {
+                const row = await resultSet.getRow();
+                if (row) {
+                    interestIncome = Number(row[0] || 0);
+                    projectedInterestExpense = Number(row[1] || 0);
+                    feeIncome = Number(row[2] || 0);
+                }
+                await resultSet.close();
+            }
+        } catch (e) {
+            // Fall back to direct views/tables below.
+        }
+
+        const incomeResult = await connection.execute(
+            `SELECT NVL(SUM(total_interest_income), 0) AS total FROM v_loan_interest_income`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        ).catch(() => ({ rows: [{ TOTAL: interestIncome }] }));
+        interestIncome = Number(incomeResult.rows?.[0]?.TOTAL || interestIncome || 0);
+
+        const expenseResult = await connection.execute(
+            `SELECT NVL(SUM(projected_interest_liability), 0) AS total FROM v_fd_interest_expense`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        ).catch(() => ({ rows: [{ TOTAL: projectedInterestExpense }] }));
+        projectedInterestExpense = Number(expenseResult.rows?.[0]?.TOTAL || projectedInterestExpense || 0);
+
+        const feeResult = await connection.execute(
+            `SELECT NVL(SUM(CASE WHEN transaction_type IN ('FEE_DEBIT', 'FEE_CREDIT', 'LOAN_PENALTY_CREDIT') THEN amount ELSE 0 END), 0) AS total
+             FROM TRANSACTIONS`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        ).catch(() => ({ rows: [{ TOTAL: feeIncome }] }));
+        feeIncome = Number(feeResult.rows?.[0]?.TOTAL || feeIncome || 0);
+
+        const liquidityResult = await connection.execute(
+            `SELECT * FROM v_branch_liquidity`,
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        ).catch(() => ({ rows: [] }));
+
+        const liquidity = (liquidityResult.rows || []).map((row) => {
+            const deposits = Number(
+                row.TOTAL_DEPOSITS ??
+                (Number(row.SAVINGS_BALANCE || 0) + Number(row.FD_PRINCIPAL || 0) + Number(row.RD_BALANCE || 0))
+            );
+            const loans = Number(row.TOTAL_LOANS ?? row.TOTAL_LOANS_OUTSTANDING ?? 0);
+            const liquidityRatio = deposits > 0 ? Number(((loans / deposits) * 100).toFixed(2)) : 0;
+            return {
+                BRANCH_ID: row.BRANCH_ID || null,
+                BRANCH_NAME: row.BRANCH_NAME || row.BRANCH_ID || 'UNKNOWN',
+                TOTAL_DEPOSITS: deposits,
+                TOTAL_LOANS: loans,
+                LIQUIDITY_RATIO: liquidityRatio,
+                RESERVE_STATUS: liquidityRatio > 80 ? 'STRESSED' : 'HEALTHY'
+            };
+        });
+
+        res.json({
+            interestIncome,
+            projectedInterestExpense,
+            feeIncome,
+            liquidity
+        });
+    } catch (err) {
+        console.error('Admin MIS summary error:', err);
+        res.status(500).json({ message: 'Could not fetch MIS summary.' });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
 // GET /api/admin/mis/system-liquidity
 router.get('/mis/system-liquidity', async (req, res) => {
     let connection;
@@ -480,9 +675,21 @@ router.post('/mis/run-fee-deduction', async (req, res) => {
     let connection;
     try {
         connection = await oracledb.getConnection();
+        // sp_deduct_service_charges takes (account_id, fee_type) — run bulk loop
         await connection.execute(
-            `BEGIN sp_deduct_service_charges(:admin); END;`,
-            { admin: req.user.id },
+            `BEGIN
+                FOR r IN (
+                    SELECT a.account_id, at.min_balance
+                    FROM ACCOUNTS a
+                    JOIN ACCOUNT_TYPES at ON a.account_type_id = at.type_id
+                    WHERE a.status = 'ACTIVE'
+                      AND a.balance < at.min_balance
+                      AND a.customer_id != 'CUST-BANK-001'
+                ) LOOP
+                    sp_deduct_service_charges(r.account_id, 'MIN_BALANCE_PENALTY');
+                END LOOP;
+            END;`,
+            {},
             { autoCommit: true }
         );
         res.json({ message: 'Global service charge deduction job triggered.' });
@@ -604,11 +811,14 @@ router.put('/branches/:branchId', async (req, res) => {
     try {
         connection = await oracledb.getConnection();
 
+        if (ifscCode !== undefined) {
+            return res.status(403).json({ message: 'IFSC code is system-generated and cannot be edited.' });
+        }
+
         // Build dynamic update
         const sets = [];
         const binds = { bid: branchId };
         if (branchName !== undefined) { sets.push('branch_name = :bname'); binds.bname = branchName; }
-        if (ifscCode !== undefined) { sets.push('ifsc_code = :ifsc'); binds.ifsc = ifscCode; }
         if (address !== undefined) { sets.push('address = :addr'); binds.addr = address; }
         if (city !== undefined) { sets.push('city = :city'); binds.city = city; }
         if (state !== undefined) { sets.push('state = :state'); binds.state = state; }
@@ -680,7 +890,14 @@ router.put('/users/:userId', async (req, res) => {
         const sets = [];
         const binds = { uid: userId };
         if (fullName !== undefined) { sets.push('full_name = :fname'); binds.fname = fullName; }
-        if (role !== undefined) { sets.push('role = :role'); binds.role = role; }
+        if (role !== undefined) {
+            const normalizedRole = String(role || '').trim().toUpperCase();
+            if (!ADMIN_ASSIGNABLE_ROLES.includes(normalizedRole)) {
+                return res.status(403).json({ message: 'SYSTEM_ADMIN can assign only TELLER, BRANCH_MANAGER, or LOAN_MANAGER roles.' });
+            }
+            sets.push('role = :emp_role');
+            binds.emp_role = normalizedRole;
+        }
         if (branchId !== undefined) { sets.push('branch_id = :bid'); binds.bid = branchId; }
 
         if (sets.length === 0) return res.status(400).json({ message: 'No fields to update.' });

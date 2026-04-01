@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const oracledb = require('oracledb');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { sendEmail } = require('../utils/emailService');
 const { generateTransactionReceiptPDF } = require('../utils/pdfGenerator');
@@ -193,20 +195,82 @@ router.post('/withdraw', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']),
 // POST /api/teller/open-account
 // sp_open_account(p_customer_id, p_type_id, p_initial_deposit, p_teller_id, p_home_branch_id)
 router.post('/open-account', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER']), async (req, res) => {
-    const { customerId, typeId, initialDeposit } = req.body;
+    const { customerId, typeId, initialDeposit, fullName, dob, pan, phone, email, address } = req.body;
     if (!customerId || !typeId || !initialDeposit) return res.status(400).json({ message: 'customerId, typeId, initialDeposit required.' });
     let connection;
     try {
         connection = await oracledb.getConnection();
 
-        // Ensure customer exists
+        // Ensure customer exists; if not, create from teller-captured onboarding details.
         const custRes = await connection.execute(
             `SELECT 1 FROM CUSTOMERS WHERE customer_id = :cid`,
             { cid: customerId },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
         if (custRes.rows.length === 0) {
-            return res.status(404).json({ message: 'Customer ID not found.' });
+            if (!fullName || !dob || !pan || !phone) {
+                return res.status(404).json({
+                    message: 'Customer ID not found. To create a new customer from teller screen, provide Full Name, DOB, PAN, and Phone.'
+                });
+            }
+
+            // Prevent identity collisions on key customer identifiers.
+            const duplicateRes = await connection.execute(
+                `SELECT customer_id FROM CUSTOMERS
+                 WHERE pan_number = :pan OR phone = :phone OR (:email IS NOT NULL AND email = :email)
+                 FETCH FIRST 1 ROWS ONLY`,
+                {
+                    pan: String(pan).trim().toUpperCase(),
+                    phone: String(phone).trim(),
+                    email: email ? String(email).trim() : null
+                },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+
+            if (duplicateRes.rows.length > 0) {
+                return res.status(409).json({
+                    message: `A customer already exists with this PAN/phone/email (Customer ID: ${duplicateRes.rows[0].CUSTOMER_ID}). Use that customer ID instead.`
+                });
+            }
+
+            // 1. Create USERS row so the customer can log in
+            const autoUsername = email ? String(email).trim().toLowerCase() : String(phone).trim();
+            const autoPassword = crypto.randomBytes(4).toString('hex').toUpperCase(); // e.g. 'A3F8B2C1'
+            const passwordHash = crypto.createHash('sha256').update(autoPassword).digest('hex');
+
+            const userInsertResult = await connection.execute(
+                `INSERT INTO USERS (username, password_hash, user_type)
+                 VALUES (:uname, :phash, 'CUSTOMER')
+                 RETURNING user_id INTO :new_user_id`,
+                {
+                    uname: autoUsername,
+                    phash: passwordHash,
+                    new_user_id: { dir: oracledb.BIND_OUT, type: oracledb.DB_TYPE_RAW }
+                }
+            );
+            const newUserId = userInsertResult.outBinds.new_user_id[0];
+
+            // 2. Create CUSTOMERS row linked to the new USERS row
+            await connection.execute(
+                `INSERT INTO CUSTOMERS (
+                    customer_id, full_name, date_of_birth, pan_number, email, phone, address, kyc_status, user_id
+                 ) VALUES (
+                    :customer_id, :full_name, TO_DATE(:dob, 'YYYY-MM-DD'), :pan_number, :email, :phone, :address, 'PENDING', :new_user_id
+                 )`,
+                {
+                    customer_id: String(customerId).trim(),
+                    full_name: String(fullName).trim(),
+                    dob: String(dob).trim(),
+                    pan_number: String(pan).trim().toUpperCase(),
+                    email: email ? String(email).trim() : null,
+                    phone: String(phone).trim(),
+                    address: address ? String(address).trim() : null,
+                    new_user_id: newUserId
+                }
+            );
+
+            // Store credentials to return to teller
+            req._newCustomerCreds = { username: autoUsername, password: autoPassword };
         }
 
         // Get teller's branch
@@ -231,13 +295,36 @@ router.post('/open-account', verifyToken, requireRole(['TELLER', 'BRANCH_MANAGER
         const newAcc = await connection.execute(
             `SELECT account_id FROM ACCOUNTS
              WHERE customer_id = :cust_id
-             ORDER BY created_at DESC
+             ORDER BY opened_date DESC, account_id DESC
              FETCH FIRST 1 ROWS ONLY`,
             { cust_id: customerId },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
         const accountId = newAcc.rows[0]?.ACCOUNT_ID;
-        res.json({ message: 'Account opened successfully.', accountId });
+        const response = { message: 'Account opened successfully.', accountId };
+        if (req._newCustomerCreds) {
+            response.newCustomerLogin = {
+                username: req._newCustomerCreds.username,
+                password: req._newCustomerCreds.password,
+                warning: 'PROVIDE THESE CREDENTIALS TO THE CUSTOMER. Password will NOT be shown again.'
+            };
+
+            // Send welcome email with credentials
+            const custEmail = email ? String(email).trim() : null;
+            const custName = fullName ? String(fullName).trim() : 'Customer';
+            if (custEmail) {
+                const welcomeHtml = templates.welcome(custName, {
+                    username: req._newCustomerCreds.username,
+                    password: req._newCustomerCreds.password,
+                    accountId: accountId,
+                    customerId: String(customerId).trim()
+                });
+                sendEmail(custEmail, 'Welcome to Safe Vault — Your Account Credentials', welcomeHtml, [], true)
+                    .then(() => console.log(`Welcome email sent to ${custEmail}`))
+                    .catch(e => console.error('Welcome email failed:', e.message));
+            }
+        }
+        res.json(response);
     } catch (err) {
         console.error('Open Account Error:', err);
         res.status(500).json({ message: 'Failed to open account: ' + err.message });

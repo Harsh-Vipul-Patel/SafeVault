@@ -105,7 +105,7 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
         // Fetch Customer IDs for both accounts to check for exemption
         const accountsRes = await connection.execute(
-            `SELECT account_id, customer_id FROM ACCOUNTS WHERE account_id IN (:sender, :receiver) OR account_number IN (:sender, :receiver)`,
+            `SELECT account_id, account_number, customer_id, status FROM ACCOUNTS WHERE account_id IN (:sender, :receiver) OR account_number IN (:sender, :receiver)`,
             { sender: fromAccountId, receiver: toAccountId },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
@@ -115,6 +115,14 @@ router.post('/transfer/internal', verifyToken, requireRole(['CUSTOMER', 'TELLER'
 
         if (!senderAcc) return res.status(404).json({ message: 'Sender account not found.' });
         if (!receiverAcc) return res.status(404).json({ message: 'Receiver account not found.' });
+
+        // --- Sender status guard (enforces same rule as sp_internal_transfer at DB level) ---
+        if (senderAcc.STATUS && senderAcc.STATUS !== 'ACTIVE') {
+            return res.status(400).json({
+                message: `Sender account is ${senderAcc.STATUS}. Cannot initiate a transfer from a ${senderAcc.STATUS} account.`,
+                code: 'SENDER_ACCOUNT_NOT_ACTIVE'
+            });
+        }
 
         const isHighValue = Number(amount) > threshold;
 
@@ -313,6 +321,44 @@ router.post('/transfer/external', verifyToken, requireRole(['CUSTOMER', 'TELLER'
                 return res.status(400).json({ message: validation.reason, attemptsLeft: validation.attemptsLeft });
             }
         }
+        // --- Sender status guard ---
+        const senderCheck = await connection.execute(
+            `SELECT status FROM ACCOUNTS WHERE account_id = :acc OR account_number = :acc`,
+            { acc: fromAccountId },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (senderCheck.rows.length === 0) {
+            return res.status(404).json({ message: 'Sender account not found.' });
+        }
+        const senderStatus = senderCheck.rows[0].STATUS;
+        if (senderStatus !== 'ACTIVE') {
+            return res.status(400).json({
+                message: `Sender account is ${senderStatus}. Cannot initiate an external transfer from a ${senderStatus} account.`,
+                code: 'SENDER_ACCOUNT_NOT_ACTIVE'
+            });
+        }
+
+        // --- Beneficiary check (Customers ONLY) ---
+        if (req.user?.role === 'CUSTOMER') {
+            const beneCheck = await connection.execute(
+                `SELECT activation_status FROM SAVED_BENEFICIARIES 
+                 WHERE customer_id = :cid AND account_number = :acc AND ifsc_code = :ifsc`,
+                { cid: req.user.id, acc: toAccount, ifsc: ifsc },
+                { outFormat: oracledb.OUT_FORMAT_OBJECT }
+            );
+
+            if (beneCheck.rows.length === 0) {
+                return res.status(400).json({ message: 'Transfer failed: The destination account is not in your saved beneficiaries.' });
+            }
+
+            const beneStatus = beneCheck.rows[0].ACTIVATION_STATUS;
+            if (beneStatus !== 'ACTIVE') {
+                return res.status(400).json({ 
+                    message: `Transfer failed: Beneficiary is currently ${beneStatus}. Please activate it first.` 
+                });
+            }
+        }
+
         await connection.execute(
             `BEGIN sp_initiate_external_transfer(:account_id, :amount, :ifsc, :acc_no, :mode, :initiated_by); END;`,
             {
@@ -522,28 +568,24 @@ router.get('/statements', verifyToken, requireRole(['CUSTOMER']), async (req, re
         if (ownerCheck.rows.length === 0) {
             return res.status(403).json({ message: 'Access denied. Account does not belong to you.' });
         }
-        let whereClauses = ['t.account_id = :acc_id'];
-        const binds = { acc_id: accountId };
-        if (fromDate) {
-            whereClauses.push('TRUNC(t.transaction_date) >= TO_DATE(:from_date, \'YYYY-MM-DD\')');
-            binds.from_date = fromDate;
-        }
-        if (toDate) {
-            whereClauses.push('TRUNC(t.transaction_date) <= TO_DATE(:to_date, \'YYYY-MM-DD\')');
-            binds.to_date = toDate;
-        }
         const rowLimit = Math.min(parseInt(limit) || 100, 200);
+        
         const result = await connection.execute(
-            `SELECT t.transaction_id, t.transaction_type, t.amount, t.balance_after,
-                    t.transaction_date, t.description, t.transaction_ref
-             FROM TRANSACTIONS t
-             WHERE ${whereClauses.join(' AND ')}
-             ORDER BY t.transaction_date DESC
-             FETCH FIRST ${rowLimit} ROWS ONLY`,
-            binds,
+            `BEGIN sp_generate_statement(:acc_id, TO_DATE(:from_date, 'YYYY-MM-DD'), TO_DATE(:to_date, 'YYYY-MM-DD'), :cursor); END;`,
+            {
+                acc_id: accountId,
+                from_date: { val: fromDate || null, type: oracledb.STRING },
+                to_date: { val: toDate || null, type: oracledb.STRING },
+                cursor: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT }
+            },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
-        res.json({ transactions: result.rows, accountId });
+
+        const resultSet = result.outBinds.cursor;
+        const rows = await resultSet.getRows(rowLimit);
+        await resultSet.close();
+
+        res.json({ transactions: rows, accountId });
     } catch (err) {
         console.error('Fetch statements error:', err);
         res.status(500).json({ message: 'Could not fetch statements.' });
@@ -574,23 +616,22 @@ router.get('/statements/download', verifyToken, requireRole(['CUSTOMER']), async
             return res.status(403).json({ message: 'Access denied or account not found.' });
         }
 
-        let whereClauses = ['t.account_id = :acc_id'];
-        const binds = { acc_id: accountId };
-        if (fromDate) { whereClauses.push("TRUNC(t.transaction_date) >= TO_DATE(:from_date, 'YYYY-MM-DD')"); binds.from_date = fromDate; }
-        if (toDate) { whereClauses.push("TRUNC(t.transaction_date) <= TO_DATE(:to_date, 'YYYY-MM-DD')"); binds.to_date = toDate; }
-
-        const txnsResult = await connection.execute(
-            `SELECT t.transaction_id, t.transaction_type, t.amount, t.balance_after,
-                    t.transaction_date, t.description
-             FROM TRANSACTIONS t
-             WHERE ${whereClauses.join(' AND ')}
-             ORDER BY t.transaction_date DESC
-             FETCH FIRST 200 ROWS ONLY`,
-            binds,
+        const result = await connection.execute(
+            `BEGIN sp_generate_statement(:acc_id, TO_DATE(:from_date, 'YYYY-MM-DD'), TO_DATE(:to_date, 'YYYY-MM-DD'), :cursor); END;`,
+            {
+                acc_id: accountId,
+                from_date: { val: fromDate || null, type: oracledb.STRING },
+                to_date: { val: toDate || null, type: oracledb.STRING },
+                cursor: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT }
+            },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
 
-        const pdfBuffer = await generateStatementPDF(accResult.rows[0], txnsResult.rows);
+        const resultSet = result.outBinds.cursor;
+        const rows = await resultSet.getRows(200);
+        await resultSet.close();
+
+        const pdfBuffer = await generateStatementPDF(accResult.rows[0], rows);
 
         res.set({
             'Content-Type': 'application/pdf',
@@ -633,23 +674,22 @@ router.post('/statements/email', verifyToken, requireRole(['CUSTOMER']), async (
             return res.status(400).json({ message: 'No email associated with your profile.' });
         }
 
-        let whereClauses = ['t.account_id = :acc_id'];
-        const binds = { acc_id: accountId };
-        if (fromDate) { whereClauses.push("TRUNC(t.transaction_date) >= TO_DATE(:from_date, 'YYYY-MM-DD')"); binds.from_date = fromDate; }
-        if (toDate) { whereClauses.push("TRUNC(t.transaction_date) <= TO_DATE(:to_date, 'YYYY-MM-DD')"); binds.to_date = toDate; }
-
-        const txnsResult = await connection.execute(
-            `SELECT t.transaction_id, t.transaction_type, t.amount, t.balance_after,
-                    t.transaction_date, t.description
-             FROM TRANSACTIONS t
-             WHERE ${whereClauses.join(' AND ')}
-             ORDER BY t.transaction_date DESC
-             FETCH FIRST 200 ROWS ONLY`,
-            binds,
+        const result = await connection.execute(
+            `BEGIN sp_generate_statement(:acc_id, TO_DATE(:from_date, 'YYYY-MM-DD'), TO_DATE(:to_date, 'YYYY-MM-DD'), :cursor); END;`,
+            {
+                acc_id: accountId,
+                from_date: { val: fromDate || null, type: oracledb.STRING },
+                to_date: { val: toDate || null, type: oracledb.STRING },
+                cursor: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT }
+            },
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
 
-        const pdfBuffer = await generateStatementPDF(accResult.rows[0], txnsResult.rows);
+        const resultSet = result.outBinds.cursor;
+        const rows = await resultSet.getRows(200);
+        await resultSet.close();
+
+        const pdfBuffer = await generateStatementPDF(accResult.rows[0], rows);
 
         const attachments = [{
             filename: `Statement-${accountId}.pdf`,

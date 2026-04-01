@@ -12,7 +12,7 @@ const templates = require('../utils/emailTemplates');
 oracledb.fetchAsString = [oracledb.CLOB];
 oracledb.fetchAsBuffer = [oracledb.BLOB];
 
-const MANAGER_ROLES = ['BRANCH_MANAGER', 'SYSTEM_ADMIN'];
+const MANAGER_ROLES = ['BRANCH_MANAGER'];
 
 // Helper: get manager's branch_id from EMPLOYEES table
 async function getManagerBranchId(connection, userId) {
@@ -458,11 +458,31 @@ router.post('/accounts/:id/status', verifyToken, requireRole(MANAGER_ROLES), asy
             }
         }
 
-        await connection.execute(
-            `BEGIN sp_set_account_status(:aid, :newStatus, :manager, :reason); END;`,
-            { aid: id, newStatus, manager: employeeId, reason: reason },
-            { autoCommit: true }
-        );
+        // Application-level enforcement for account closure
+        if (newStatus === 'CLOSED' && Number(accountData.BALANCE) !== 0) {
+            return res.status(400).json({
+                message: 'Account closure rejected: Balance must be zero.',
+                code: 'BALANCE_NOT_ZERO',
+                balance: accountData.BALANCE
+            });
+        }
+
+        try {
+            await connection.execute(
+                `BEGIN sp_set_account_status(:aid, :newStatus, :manager, :reason); END;`,
+                { aid: id, newStatus, manager: employeeId, reason: reason },
+                { autoCommit: true }
+            );
+        } catch (dbErr) {
+            if (dbErr.message.includes('ORA-20002') || dbErr.message.includes('Balance must be zero')) {
+                return res.status(400).json({ 
+                    message: 'Account closure rejected: Balance must be zero.', 
+                    code: 'BALANCE_NOT_ZERO',
+                    balance: accountData.BALANCE
+                });
+            }
+            throw dbErr;
+        }
 
         // Send email notification if freezing or unfreezing
         if (newStatus === 'FROZEN' && oldStatus !== 'FROZEN' && customerEmail) {
@@ -599,13 +619,11 @@ router.get('/audit', verifyToken, requireRole(MANAGER_ROLES), async (req, res) =
         const binds = {};
         const managerId = req.user?.id || 'MANAGER_DEFAULT';
 
-        // Filter by branch for BRANCH_MANAGER, SYSTEM_ADMIN sees everything
-        if (req.user.role !== 'SYSTEM_ADMIN') {
-            const managerInfo = await getManagerBranchId(connection, managerId);
-            if (managerInfo?.BRANCH_ID) {
-                whereClause += ` AND (a.changed_by IN (SELECT employee_id FROM EMPLOYEES WHERE branch_id = :manager_branch) OR a.changed_by = 'SYSTEM')`;
-                binds.manager_branch = managerInfo.BRANCH_ID;
-            }
+        // Branch managers can only inspect their own branch logs.
+        const managerInfo = await getManagerBranchId(connection, managerId);
+        if (managerInfo?.BRANCH_ID) {
+            whereClause += ` AND (a.changed_by IN (SELECT employee_id FROM EMPLOYEES WHERE branch_id = :manager_branch) OR a.changed_by = 'SYSTEM')`;
+            binds.manager_branch = managerInfo.BRANCH_ID;
         }
 
         if (date) {

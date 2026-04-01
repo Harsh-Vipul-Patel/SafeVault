@@ -57,13 +57,47 @@ const verifyToken = async (req, res, next) => {
 
 // Middleware for Role-Based Access Control (RBAC)
 const requireRole = (allowedRoles) => {
-    return (req, res, next) => {
+    return async (req, res, next) => {
         if (!req.user || !req.user.role) {
             return res.status(401).json({ message: 'Unauthorized: No role specified' });
         }
 
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: `Forbidden: Requires one of [${allowedRoles.join(', ')}]` });
+        }
+
+        const isCustomerWriteRequest =
+            req.user.role === 'CUSTOMER' &&
+            ['POST', 'PUT', 'PATCH', 'DELETE'].includes((req.method || '').toUpperCase());
+
+        if (isCustomerWriteRequest) {
+            let connection;
+            try {
+                connection = await oracledb.getConnection();
+                const result = await connection.execute(
+                    `SELECT kyc_status FROM CUSTOMERS WHERE customer_id = :cid`,
+                    { cid: req.user.id },
+                    { outFormat: oracledb.OUT_FORMAT_OBJECT }
+                );
+
+                if (result.rows.length === 0) {
+                    return res.status(404).json({ message: 'Customer profile not found for KYC validation.' });
+                }
+
+                const kycStatus = (result.rows[0].KYC_STATUS || 'PENDING').toUpperCase();
+                if (kycStatus !== 'VERIFIED') {
+                    return res.status(403).json({
+                        message: 'KYC verification is required for create/update/delete operations. Read-only access is allowed until KYC is VERIFIED.',
+                        kycStatus,
+                        allowedOperations: 'READ_ONLY'
+                    });
+                }
+            } catch (err) {
+                console.error('KYC role-check error:', err);
+                return res.status(500).json({ message: 'Could not validate KYC status for access control.' });
+            } finally {
+                if (connection) await connection.close();
+            }
         }
 
         next();
