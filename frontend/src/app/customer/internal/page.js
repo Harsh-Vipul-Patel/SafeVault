@@ -25,6 +25,7 @@ export default function InternalTransfer() {
     const [otpCode, setOtpCode] = useState('');
     const [otpLoading, setOtpLoading] = useState(false);
     const [timeLeft, setTimeLeft] = useState(60);
+    const [errorModalConfig, setErrorModalConfig] = useState(null);
 
     useEffect(() => {
         let timer;
@@ -61,6 +62,13 @@ export default function InternalTransfer() {
         }
         if (fromAccountId.trim() === toAccount.trim()) {
             setMessage({ type: 'error', text: 'Source and destination accounts cannot be the same.' });
+            return;
+        }
+
+        // Pre-check: block transfer if sender account is FROZEN
+        const senderAccount = accounts.find(a => (a.ACCOUNT_ID || a.account_id) === fromAccountId);
+        if (senderAccount && (senderAccount.STATUS || senderAccount.status) === 'FROZEN') {
+            setErrorModalConfig({ type: 'SENDER_FROZEN', accountId: fromAccountId });
             return;
         }
 
@@ -106,6 +114,22 @@ export default function InternalTransfer() {
                 setShowOtp(false);
             } else {
                 let errorTxt = data.message || 'Transfer failed.';
+                if (errorTxt.includes('Insufficient funds for transfer')) {
+                    setShowOtp(false);
+                    setErrorModalConfig({ type: 'INSUFFICIENT_FUNDS', available: selectedAcc?.BALANCE || selectedAcc?.balance || 0 });
+                    return;
+                }
+                if (errorTxt.includes('Receiver account is not ACTIVE')) {
+                    setShowOtp(false);
+                    setErrorModalConfig({ type: 'FROZEN_RECEIVER' });
+                    return;
+                }
+                if (errorTxt.includes('Sender account is') || data.code === 'SENDER_ACCOUNT_NOT_ACTIVE') {
+                    setShowOtp(false);
+                    setErrorModalConfig({ type: 'SENDER_FROZEN', accountId: fromAccountId });
+                    return;
+                }
+                
                 if (data.attemptsLeft !== undefined) {
                     errorTxt += ` (Attempts remaining: ${data.attemptsLeft})`;
                     if (data.attemptsLeft === 0) {
@@ -152,9 +176,16 @@ export default function InternalTransfer() {
                         </select>
                     )}
                     {selectedAcc && (
-                        <div className={styles.balanceHint}>
-                            Available: <strong>{formatINR(selectedAcc.BALANCE || selectedAcc.balance)}</strong>
-                        </div>
+                        <>
+                            <div className={styles.balanceHint}>
+                                Available: <strong>{formatINR(selectedAcc.BALANCE || selectedAcc.balance)}</strong>
+                            </div>
+                            {(selectedAcc.STATUS === 'FROZEN' || selectedAcc.status === 'FROZEN') && (
+                                <div style={{ color: '#EF4444', fontSize: '13px', marginTop: '6px', fontWeight: 'bold' }}>
+                                    ⚠️ This account is FROZEN. Outbound transfers are blocked.
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
@@ -239,6 +270,54 @@ export default function InternalTransfer() {
                             <button className={styles.btnCancel} onClick={() => { setShowOtp(false); setMessage(null); }}>CANCEL</button>
                             <button className={styles.btnSubmit} style={{ marginTop: 0, flex: 2 }} onClick={submitTransfer} disabled={otpLoading || otpCode.length < 6 || timeLeft === 0}>
                                 {otpLoading ? 'VERIFYING...' : 'VERIFY & TRANSFER'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {errorModalConfig && (
+                <div className={styles.modalOverlay} style={{ zIndex: 1100 }}>
+                    <div className={styles.modalContent} style={{ maxWidth: '420px', borderTop: '4px solid #EF4444' }}>
+                        <h2 className={styles.modalTitle} style={{ color: '#EF4444' }}>Transfer Failed</h2>
+                        
+                        {errorModalConfig.type === 'INSUFFICIENT_FUNDS' && (
+                            <div style={{ textAlign: 'left', margin: '20px 0', fontSize: '14px', lineHeight: '1.6' }}>
+                                <p style={{ marginBottom: '16px', color: '#E2E8F0' }}>Insufficient funds for transfer.</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '8px', color: '#94A3B8' }}>
+                                    <div>Available Balance:</div>
+                                    <div style={{ textAlign: 'right', fontWeight: 'bold' }}>Rs.{Number(errorModalConfig.available).toLocaleString('en-IN')}</div>
+                                    <div>Minimum Balance Required:</div>
+                                    <div style={{ textAlign: 'right', fontWeight: 'bold' }}>Rs.1,000</div>
+                                    <div>Maximum You Can Transfer:</div>
+                                    <div style={{ textAlign: 'right', fontWeight: 'bold', color: '#F8FAFC' }}>Rs.{Number(Math.max(0, errorModalConfig.available - 1000)).toLocaleString('en-IN')}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {errorModalConfig.type === 'FROZEN_RECEIVER' && (
+                            <div style={{ textAlign: 'left', margin: '20px 0', fontSize: '14px', lineHeight: '1.6', color: '#E2E8F0' }}>
+                                <p style={{ marginBottom: '12px' }}>Receiver account is not ACTIVE.</p>
+                                <p style={{ marginBottom: '12px', color: '#94A3B8' }}>The destination account may be frozen or closed.</p>
+                                <p style={{ color: '#94A3B8' }}>Please verify the account number and try again.</p>
+                            </div>
+                        )}
+
+                        {errorModalConfig.type === 'SENDER_FROZEN' && (
+                            <div style={{ textAlign: 'left', margin: '20px 0', fontSize: '14px', lineHeight: '1.6', color: '#E2E8F0' }}>
+                                <p style={{ marginBottom: '12px', color: '#EF4444', fontWeight: 'bold' }}>Your account is FROZEN.</p>
+                                <p style={{ marginBottom: '12px', color: '#94A3B8' }}>Account <strong>{errorModalConfig.accountId}</strong> cannot be used to initiate outbound transfers.</p>
+                                <p style={{ color: '#94A3B8' }}>Please contact your branch manager to resolve this status.</p>
+                            </div>
+                        )}
+
+                        <div className={styles.btnGroup} style={{ marginTop: '24px' }}>
+                            <button 
+                                className={styles.btnCancel} 
+                                style={{ width: '100%', borderColor: '#475569', color: '#E2E8F0' }} 
+                                onClick={() => setErrorModalConfig(null)}
+                            >
+                                {errorModalConfig.type === 'INSUFFICIENT_FUNDS' ? 'Try Again' : 'Go Back'}
                             </button>
                         </div>
                     </div>

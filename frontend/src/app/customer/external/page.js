@@ -20,6 +20,7 @@ export default function ExternalTransfer() {
   const [loading, setLoading] = useState(false);
   const [loadingAccts, setLoadingAccts] = useState(true);
   const [message, setMessage] = useState(null);
+  const [errorModalConfig, setErrorModalConfig] = useState(null);
 
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
@@ -58,6 +59,13 @@ export default function ExternalTransfer() {
     if (!fromAccountId || !toAccount || !ifsc || !amount || Number(amount) <= 0) {
       setMessage({ type: 'error', text: 'All fields are required with valid values.' });
       return;
+    }
+
+    // Pre-check: block transfer if sender account is FROZEN
+    const senderAccount = accounts.find(a => (a.ACCOUNT_ID || a.account_id) === fromAccountId);
+    if (senderAccount && (senderAccount.STATUS || senderAccount.status) === 'FROZEN') {
+        setErrorModalConfig({ type: 'SENDER_FROZEN', accountId: fromAccountId });
+        return;
     }
 
     // IFSC Validation: 11 characters, 5th must be '0'
@@ -115,6 +123,11 @@ export default function ExternalTransfer() {
             setShowOtp(false);
           }
         }
+        if (errorTxt.includes('Sender account is') || data.code === 'SENDER_ACCOUNT_NOT_ACTIVE') {
+            setShowOtp(false);
+            setErrorModalConfig({ type: 'SENDER_FROZEN', accountId: fromAccountId });
+            return;
+        }
         setMessage({ type: 'error', text: errorTxt });
       }
     } catch {
@@ -155,9 +168,16 @@ export default function ExternalTransfer() {
             </select>
           )}
           {selectedAcc && (
-            <div className={styles.balanceHint}>
-              Available: <strong>{formatINR(selectedAcc.BALANCE || selectedAcc.balance)}</strong>
-            </div>
+            <>
+              <div className={styles.balanceHint}>
+                Available: <strong>{formatINR(selectedAcc.BALANCE || selectedAcc.balance)}</strong>
+              </div>
+              {(selectedAcc.STATUS === 'FROZEN' || selectedAcc.status === 'FROZEN') && (
+                <div style={{ color: '#EF4444', fontSize: '13px', marginTop: '6px', fontWeight: 'bold' }}>
+                  ⚠️ This account is FROZEN. Outbound transfers are blocked.
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -255,6 +275,32 @@ export default function ExternalTransfer() {
             </div>
           </div>
         </div>
+      )}
+
+      {errorModalConfig && (
+          <div className={styles.modalOverlay} style={{ zIndex: 1100 }}>
+              <div className={styles.modalContent} style={{ maxWidth: '420px', borderTop: '4px solid #EF4444' }}>
+                  <h2 className={styles.modalTitle} style={{ color: '#EF4444' }}>Transfer Failed</h2>
+
+                  {errorModalConfig.type === 'SENDER_FROZEN' && (
+                      <div style={{ textAlign: 'left', margin: '20px 0', fontSize: '14px', lineHeight: '1.6', color: '#E2E8F0' }}>
+                          <p style={{ marginBottom: '12px', color: '#EF4444', fontWeight: 'bold' }}>Your account is FROZEN.</p>
+                          <p style={{ marginBottom: '12px', color: '#94A3B8' }}>Account <strong>{errorModalConfig.accountId}</strong> cannot be used to initiate outbound transfers.</p>
+                          <p style={{ color: '#94A3B8' }}>Please contact your branch manager to resolve this status.</p>
+                      </div>
+                  )}
+
+                  <div className={styles.btnGroup} style={{ marginTop: '24px' }}>
+                      <button 
+                          className={styles.btnCancel} 
+                          style={{ width: '100%', borderColor: '#475569', color: '#E2E8F0' }} 
+                          onClick={() => setErrorModalConfig(null)}
+                      >
+                          Go Back
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );

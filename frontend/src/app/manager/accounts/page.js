@@ -109,6 +109,30 @@ export default function AccountLifecycle() {
             });
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
+
+                // Catch general Account Closure Error formats
+                if (newStatus === 'CLOSED' && errorData.message && errorData.message.toLowerCase().includes('account closure')) {
+                    setModalConfig({ 
+                        type: 'CLOSURE_ERROR', 
+                        newStatus: 'CLOSED',
+                        message: errorData.message, 
+                        balance: errorData.balance,
+                        code: errorData.code
+                    });
+                    return;
+                }
+
+                // Fallback catch for BALANCE_NOT_ZERO legacy checks
+                if (errorData.code === 'BALANCE_NOT_ZERO' || (errorData.message && errorData.message.includes('Balance must be zero'))) {
+                    setModalConfig({ 
+                        type: 'CLOSURE_ERROR', 
+                        newStatus: 'CLOSED', // keep compatible with some checks 
+                        message: errorData.message || 'Account closure rejected: Balance must be zero.', 
+                        balance: errorData.balance,
+                        code: 'BALANCE_NOT_ZERO'
+                    });
+                    return;
+                }
                 throw new Error(errorData.message || 'Status change failed');
             }
             const data = await res.json();
@@ -190,54 +214,79 @@ export default function AccountLifecycle() {
                 </div>
             </div>
 
-            {/* OTP Modal */}
+            {/* OTP Modal & Error Modal */}
             {modalConfig && (
                 <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC' }}>
-                        <h3 style={{ marginBottom: '16px' }}>Authenticate {modalConfig.newStatus === 'FROZEN' ? 'Freeze' : 'Unfreeze'} Action</h3>
-                        <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '24px' }}>
-                            This high-risk action requires Manager Authentication. Generate and verify your OTP to proceed.
-                        </p>
-
-                        {modalError && <div style={{ color: '#F87171', fontSize: '13px', marginBottom: '16px' }}>{modalError}</div>}
-
-                        <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: '#CBD5E1' }}>Reason for {modalConfig.newStatus === 'FROZEN' ? 'Freezing' : 'Unfreezing'}</label>
-                            <input 
-                                value={reason} 
-                                onChange={e => setReason(e.target.value)} 
-                                disabled={otpSent}
-                                style={{ width: '100%', padding: '10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#FFF' }}
-                                placeholder="Enter reason for audit"
-                            />
-                        </div>
-
-                        {!otpSent ? (
-                            <button onClick={sendOTP} className={styles.btnApprove} style={{ width: '100%', padding: '12px', marginBottom: '16px' }}>Generate Manager OTP</button>
-                        ) : (
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: '#CBD5E1' }}>Enter 6-Digit Manager OTP (Sent to Email)</label>
-                                <input 
-                                    value={otp} 
-                                    onChange={e => setOtp(e.target.value)} 
-                                    maxLength={6}
-                                    style={{ width: '100%', padding: '10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#FFF', letterSpacing: '4px', textAlign: 'center', fontSize: '18px' }}
-                                    placeholder="000000"
-                                />
-                            </div>
-                        )}
-
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => setModalConfig(null)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                    {modalConfig.type === 'CLOSURE_ERROR' ? (
+                        <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC' }}>
+                            <h3 style={{ marginBottom: '16px', color: '#FF4A4A' }}>Account Closure Failed</h3>
+                            <p style={{ fontSize: '14px', color: '#E2E8F0', marginBottom: '16px', whiteSpace: 'pre-wrap' }}>
+                                {modalConfig.message || 'Account closure rejected: Balance must be zero.'}
+                            </p>
+                            {(modalConfig.code === 'BALANCE_NOT_ZERO' || (modalConfig.balance !== undefined && modalConfig.balance !== null && Number(modalConfig.balance) > 0)) && (
+                                <>
+                                    <p style={{ fontSize: '14px', color: '#E2E8F0', marginBottom: '8px' }}>
+                                        The account currently has a balance of Rs.{Number(modalConfig.balance || 0).toLocaleString('en-IN')}.
+                                    </p>
+                                    <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '24px' }}>
+                                        Please transfer or withdraw all funds before closing.
+                                    </p>
+                                </>
+                            )}
                             <button 
-                                onClick={submitStatusChangeWithOTP} 
-                                disabled={!otpSent}
-                                style={{ flex: 1, padding: '10px', background: otpSent ? '#3B82F6' : '#1E3A8A', color: '#FFF', border: 'none', borderRadius: '6px', cursor: otpSent ? 'pointer' : 'not-allowed' }}
+                                onClick={() => setModalConfig(null)} 
+                                style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
                             >
-                                Confirm Action
+                                Dismiss
                             </button>
                         </div>
-                    </div>
+                    ) : (
+                        <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC' }}>
+                            <h3 style={{ marginBottom: '16px' }}>Authenticate {modalConfig.newStatus === 'FROZEN' ? 'Freeze' : 'Unfreeze'} Action</h3>
+                            <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '24px' }}>
+                                This high-risk action requires Manager Authentication. Generate and verify your OTP to proceed.
+                            </p>
+
+                            {modalError && <div style={{ color: '#F87171', fontSize: '13px', marginBottom: '16px' }}>{modalError}</div>}
+
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: '#CBD5E1' }}>Reason for {modalConfig.newStatus === 'FROZEN' ? 'Freezing' : 'Unfreezing'}</label>
+                                <input 
+                                    value={reason} 
+                                    onChange={e => setReason(e.target.value)} 
+                                    disabled={otpSent}
+                                    style={{ width: '100%', padding: '10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#FFF' }}
+                                    placeholder="Enter reason for audit"
+                                />
+                            </div>
+
+                            {!otpSent ? (
+                                <button onClick={sendOTP} className={styles.btnApprove} style={{ width: '100%', padding: '12px', marginBottom: '16px' }}>Generate Manager OTP</button>
+                            ) : (
+                                <div style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: '#CBD5E1' }}>Enter 6-Digit Manager OTP (Sent to Email)</label>
+                                    <input 
+                                        value={otp} 
+                                        onChange={e => setOtp(e.target.value)} 
+                                        maxLength={6}
+                                        style={{ width: '100%', padding: '10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#FFF', letterSpacing: '4px', textAlign: 'center', fontSize: '18px' }}
+                                        placeholder="000000"
+                                    />
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => setModalConfig(null)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                                <button 
+                                    onClick={submitStatusChangeWithOTP} 
+                                    disabled={!otpSent}
+                                    style={{ flex: 1, padding: '10px', background: otpSent ? '#3B82F6' : '#1E3A8A', color: '#FFF', border: 'none', borderRadius: '6px', cursor: otpSent ? 'pointer' : 'not-allowed' }}
+                                >
+                                    Confirm Action
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

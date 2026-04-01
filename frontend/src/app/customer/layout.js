@@ -22,6 +22,7 @@ import {
     Landmark
 } from 'lucide-react';
 import styles from './customer.module.css';
+import DBNotifications from '../components/DBNotifications';
 
 function decodeJWT(token) {
     try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
@@ -189,10 +190,7 @@ export default function CustomerLayout({ children }) {
                         Safe Vault Portal <ChevronRight size={14} /> <span>{topNavItems.find(i => i.path === pathname)?.label || bottomNavItems.find(i => i.path === pathname)?.label || 'Dashboard'}</span>
                     </div>
                     <div className={styles.topActions}>
-                        <div className={styles.notificationBell}>
-                            <div className={styles.ping}></div>
-                            🔔
-                        </div>
+                        <DBNotifications bellClassName={styles.notificationBell} />
                     </div>
                 </header>
                 <div className={styles.pageBody}>

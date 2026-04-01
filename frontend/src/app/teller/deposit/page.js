@@ -14,6 +14,7 @@ export default function CashDeposit() {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null);
     const [newBalance, setNewBalance] = useState(null);
+    const [errorModalConfig, setErrorModalConfig] = useState(null);
 
     const fetchAccount = async () => {
         if (!acctId.trim()) return;
@@ -58,7 +59,12 @@ export default function CashDeposit() {
                 const data2 = await res2.json();
                 if (data2.results?.length > 0) setInfo(data2.results[0]);
             } else {
-                setMsg({ type: 'error', text: data.message || 'Deposit failed.' });
+                let errTxt = data.message || 'Deposit failed.';
+                if (errTxt.includes('Account is FROZEN')) {
+                    setErrorModalConfig({ type: 'FROZEN_ACCOUNT' });
+                } else {
+                    setMsg({ type: 'error', text: errTxt });
+                }
             }
         } catch {
             setMsg({ type: 'error', text: 'Network connection failed. Check backend server.' });
@@ -146,6 +152,26 @@ export default function CashDeposit() {
                     {loading ? 'COMMITTING TO ORACLE…' : '✓ COMMIT DEPOSIT'}
                 </button>
             </div>
+
+            {errorModalConfig && errorModalConfig.type === 'FROZEN_ACCOUNT' && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC', borderTop: '4px solid #EF4444' }}>
+                        <h3 style={{ marginBottom: '16px', color: '#EF4444', borderBottom: 'none' }}>Deposit Failed</h3>
+                        <p style={{ fontSize: '14px', color: '#E2E8F0', marginBottom: '16px' }}>
+                            Account is FROZEN. Cannot deposit.
+                        </p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '24px' }}>
+                            Please contact the branch manager to unfreeze this account.
+                        </p>
+                        <button 
+                            onClick={() => setErrorModalConfig(null)} 
+                            style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

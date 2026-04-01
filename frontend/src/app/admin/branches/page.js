@@ -13,7 +13,7 @@ export default function BranchManagement() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [formData, setFormData] = useState({
-        branchId: '', branchName: '', ifscCode: '', city: '', state: '', address: ''
+        branchId: '', branchName: '', city: '', state: '', address: ''
     });
     const [editData, setEditData] = useState({
         branchId: '', branchName: '', ifscCode: '', city: '', state: '', address: ''
@@ -50,8 +50,9 @@ export default function BranchManagement() {
             });
             const data = await res.json();
             if (res.ok) {
-                setMsg('✓ ' + data.message); setShowModal(false);
-                setFormData({ branchId: '', branchName: '', ifscCode: '', city: '', state: '', address: '' });
+                const ifscNote = data.ifscCode ? ` IFSC: ${data.ifscCode}` : '';
+                setMsg('✓ ' + data.message + ifscNote); setShowModal(false);
+                setFormData({ branchId: '', branchName: '', city: '', state: '', address: '' });
                 fetchBranches();
             } else setMsg('Error: ' + data.message);
         } catch { setMsg('Failed to create branch. Backend unreachable.'); }
@@ -62,7 +63,7 @@ export default function BranchManagement() {
         setEditData({
             branchId: branch.BRANCH_ID || branch.branch_id,
             branchName: branch.BRANCH_NAME || branch.branch_name || '',
-            ifscCode: branch.IFSC_CODE || branch.branch_code || '',
+            ifscCode: branch.IFSC_CODE || branch.BRANCH_CODE || branch.branch_code || '',
             city: branch.CITY || branch.city || '',
             state: branch.STATE || branch.state || '',
             address: branch.ADDRESS || branch.address || ''
@@ -79,7 +80,6 @@ export default function BranchManagement() {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
                 body: JSON.stringify({
                     branchName: editData.branchName,
-                    ifscCode: editData.ifscCode,
                     address: editData.address,
                     city: editData.city,
                     state: editData.state
@@ -113,7 +113,9 @@ export default function BranchManagement() {
     };
     const labelStyle = { color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '4px' };
 
-    const renderModal = (title, subtitle, data, onChange, onSubmit, onClose, submitLabel) => (
+    const renderModal = (title, subtitle, data, onChange, onSubmit, onClose, submitLabel) => {
+        const isEdit = title.includes('Edit');
+        return (
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
             background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -128,11 +130,19 @@ export default function BranchManagement() {
                 <form onSubmit={onSubmit} style={{ display: 'grid', gap: '16px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div><label style={labelStyle}>BRANCH ID</label>
-                            <input name="branchId" value={data.branchId} onChange={onChange} required disabled={title.includes('Edit')} placeholder="BRN-MUM-003" style={{ ...inputStyle, opacity: title.includes('Edit') ? 0.5 : 1 }} />
+                            <input name="branchId" value={data.branchId} onChange={onChange} required disabled={isEdit} placeholder="BRN-MUM-003" style={{ ...inputStyle, opacity: isEdit ? 0.5 : 1 }} />
                         </div>
                         <div><label style={labelStyle}>IFSC CODE</label>
-                            <input name="ifscCode" value={data.ifscCode} onChange={onChange} required placeholder="SAFE0000003" style={inputStyle} />
+                            <input
+                                name="ifscCode"
+                                value={isEdit ? (data.ifscCode || '') : 'AUTO-GENERATED'}
+                                disabled
+                                style={{ ...inputStyle, opacity: 0.7 }}
+                            />
                         </div>
+                    </div>
+                    <div style={{ color: '#94A3B8', fontSize: '12px', marginTop: '-8px' }}>
+                        IFSC is generated automatically when branch is created and cannot be edited.
                     </div>
                     <div><label style={labelStyle}>BRANCH NAME</label>
                         <input name="branchName" value={data.branchName} onChange={onChange} required placeholder="Mumbai Central Node" style={inputStyle} />
@@ -158,6 +168,7 @@ export default function BranchManagement() {
             </div>
         </div>
     );
+    };
 
     if (loading) return <div className={styles.loading}>Loading Branch Data from Oracle…</div>;
 
@@ -196,7 +207,7 @@ export default function BranchManagement() {
                             const active = b.IS_ACTIVE === '1' || b.IS_ACTIVE === 1 || b.is_active === '1' || b.is_active === 1 || b.is_active === 'Y';
                             return (
                                 <div className={styles.td} style={{ gridTemplateColumns: '1fr 2fr 1fr 2fr 1.5fr 1.5fr' }} key={b.BRANCH_ID || b.branch_id}>
-                                    <div className={styles.monoBlue}>{b.IFSC_CODE || b.branch_code}</div>
+                                    <div className={styles.monoBlue}>{b.IFSC_CODE || b.BRANCH_CODE || b.branch_code || '—'}</div>
                                     <div style={{ fontWeight: 600, color: '#E2E8F0' }}>{b.BRANCH_NAME || b.branch_name}</div>
                                     <div>
                                         {active ? (

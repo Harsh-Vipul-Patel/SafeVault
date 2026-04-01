@@ -17,6 +17,7 @@ import {
     Briefcase
 } from 'lucide-react';
 import styles from './loan.module.css';
+import DBNotifications from '../components/DBNotifications';
 
 export default function LoanManagerLayout({ children }) {
     const pathname = usePathname();
@@ -165,10 +166,7 @@ export default function LoanManagerLayout({ children }) {
                             <span className={styles.statusDot}></span>
                         </div>
                         <div className={styles.actionBtn}><Settings size={18} /></div>
-                        <div className={styles.notificationBtn}>
-                            <Bell size={18} />
-                            <span className={styles.notifBadge}></span>
-                        </div>
+                        <DBNotifications bellClassName={styles.notificationBtn} />
                     </div>
                 </header>
 

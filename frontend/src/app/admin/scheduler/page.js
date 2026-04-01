@@ -88,16 +88,16 @@ export default function SchedulerMonitor() {
                     </div>
                     <div className={styles.table}>
                         <div className={styles.th} style={{ gridTemplateColumns: '1.5fr 1fr 1fr 1fr' }}>
-                            <div>ACCOUNT ID</div><div>PREV BALANCE</div><div>INTEREST ADDED</div><div>NEW BALANCE</div>
+                            <div>ACCOUNT ID</div><div>PRINCIPAL</div><div>INTEREST ACCRUED</div><div>ACCRUAL DATE</div>
                         </div>
                         {logs.length === 0 ? (
                             <div style={{ padding: '24px', textAlign: 'center', color: '#64748B' }}>No interest accrual logs found.</div>
                         ) : logs.map(l => (
                             <div className={styles.td} style={{ gridTemplateColumns: '1.5fr 1fr 1fr 1fr' }} key={l.LOG_ID || l.log_id}>
                                 <div className={styles.monoBlue}>{l.ACCOUNT_ID || l.account_id}</div>
-                                <div style={{ fontFamily: 'DM Mono' }}>₹{Number(l.PREVIOUS_BALANCE || l.previous_balance).toFixed(2)}</div>
-                                <div style={{ fontFamily: 'DM Mono', color: '#10B981', fontWeight: 600 }}>+₹{Number(l.INTEREST_AMOUNT || l.interest_amount).toFixed(2)}</div>
-                                <div style={{ fontFamily: 'DM Mono', color: '#F8FAFC' }}>₹{Number(l.NEW_BALANCE || l.new_balance).toFixed(2)}</div>
+                                <div style={{ fontFamily: 'DM Mono' }}>₹{Number(l.PRINCIPAL_AMOUNT || l.principal_amount || 0).toFixed(2)}</div>
+                                <div style={{ fontFamily: 'DM Mono', color: '#10B981', fontWeight: 600 }}>+₹{Number(l.INTEREST_AMOUNT || l.interest_amount || 0).toFixed(2)}</div>
+                                <div style={{ fontSize: '12px', color: '#94A3B8' }}>{l.RUN_DATE || l.run_date ? new Date(l.RUN_DATE || l.run_date).toLocaleDateString('en-IN') : '—'}</div>
                             </div>
                         ))}
                     </div>

@@ -46,9 +46,9 @@ export default function ManagerMIS() {
                 </div>
 
                 <div className={styles.card} style={{ padding: '24px', borderLeft: '4px solid #F87171' }}>
-                    <div style={{ color: '#94A3B8', fontSize: '13px', marginBottom: '8px' }}>INTEREST EXPENSE (FD/RD)</div>
+                    <div style={{ color: '#94A3B8', fontSize: '13px', marginBottom: '8px' }}>INTEREST EXPENSE (FD/RD + SAVINGS POSTED)</div>
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#F8FAFC' }}>{formatINR(mis?.projectedInterestExpense)}</div>
-                    <div style={{ color: '#F87171', fontSize: '12px', marginTop: '4px' }}>→ Projected Liability</div>
+                    <div style={{ color: '#F87171', fontSize: '12px', marginTop: '4px' }}>→ Projected + Posted Liability</div>
                 </div>
 
                 <div className={styles.card} style={{ padding: '24px', borderLeft: '4px solid #60A5FA' }}>

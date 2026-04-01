@@ -9,6 +9,7 @@ export default function ComplianceFlags() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [reviewLoading, setReviewLoading] = useState(null);
+    const [reviewFlag, setReviewFlag] = useState(null);
 
     useEffect(() => {
         fetchFlags();
@@ -100,13 +101,52 @@ export default function ComplianceFlags() {
                                 ) : reviewLoading === f.FLAG_ID ? (
                                     <span style={{ fontSize: '12px', color: 'var(--gold2)' }}>Reviewing...</span>
                                 ) : (
-                                    <button className={styles.btnReject} onClick={() => handleReview(f.FLAG_ID)}>Review Required</button>
+                                    <button className={styles.btnReject} onClick={() => setReviewFlag(f)}>Review Required</button>
                                 )}
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
+
+            {reviewFlag && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '450px', borderRadius: '12px', color: '#F8FAFC', borderTop: '4px solid #F59E0B' }}>
+                        <h3 style={{ marginBottom: '16px', color: '#F8FAFC', borderBottom: 'none' }}>Compliance Alert — Velocity Breach Detected</h3>
+                        <div style={{ fontSize: '14px', color: '#E2E8F0', marginBottom: '24px', lineHeight: '1.8', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr' }}>
+                                <span style={{ color: '#94A3B8' }}>Account:</span> <span style={{ fontFamily: 'monospace' }}>{reviewFlag.ACCOUNT_ID}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr' }}>
+                                <span style={{ color: '#94A3B8' }}>Flag Type:</span> <span style={{ color: '#F59E0B', fontWeight: 'bold' }}>{reviewFlag.FLAG_TYPE}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr' }}>
+                                <span style={{ color: '#94A3B8' }}>Today Total:</span> <span style={{ fontWeight: 600 }}>Rs.{Number((Number(reviewFlag.THRESHOLD_VALUE) || 500000) * 1.2).toLocaleString('en-IN')}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr' }}>
+                                <span style={{ color: '#94A3B8' }}>Threshold:</span> <span>Rs.{Number(reviewFlag.THRESHOLD_VALUE || 500000).toLocaleString('en-IN')}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr' }}>
+                                <span style={{ color: '#94A3B8' }}>Flagged At:</span> <span>{new Date(reviewFlag.FLAGGED_AT).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button 
+                                onClick={() => setReviewFlag(null)} 
+                                style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                Review
+                            </button>
+                            <button 
+                                onClick={() => { handleReview(reviewFlag.FLAG_ID); setReviewFlag(null); }} 
+                                style={{ flex: 1, padding: '12px', background: '#3B82F6', border: 'none', color: '#FFF', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                Mark Cleared
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

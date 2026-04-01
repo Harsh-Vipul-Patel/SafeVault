@@ -14,6 +14,7 @@ export default function OpenAccount() {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null);
     const [newAccId, setNewAccId] = useState(null);
+    const [newCreds, setNewCreds] = useState(null);
 
     useEffect(() => {
         // Load account types from backend
@@ -34,7 +35,7 @@ export default function OpenAccount() {
             setMsg({ type: 'error', text: 'Customer ID, Account Type and Initial Deposit are required.' });
             return;
         }
-        setLoading(true); setMsg(null);
+        setLoading(true); setMsg(null); setNewCreds(null);
         try {
             const res = await fetch(`${API}/api/teller/open-account`, {
                 method: 'POST',
@@ -42,13 +43,20 @@ export default function OpenAccount() {
                 body: JSON.stringify({
                     customerId: form.customerId.trim(),
                     typeId: Number(form.typeId),
-                    initialDeposit: Number(form.initialDeposit)
+                    initialDeposit: Number(form.initialDeposit),
+                    fullName: form.fullName.trim(),
+                    dob: form.dob,
+                    pan: form.pan.trim(),
+                    phone: form.phone.trim(),
+                    email: form.email.trim(),
+                    address: form.address.trim()
                 })
             });
             const data = await res.json();
             if (res.ok) {
                 setMsg({ type: 'success', text: `✓ ${data.message}` });
                 if (data.accountId) setNewAccId(data.accountId);
+                if (data.newCustomerLogin) setNewCreds(data.newCustomerLogin);
                 setForm({ customerId: '', fullName: '', dob: '', pan: '', phone: '', email: '', address: '', typeId: '', initialDeposit: '' });
             } else {
                 setMsg({ type: 'error', text: data.message || 'Failed to open account.' });
@@ -92,12 +100,20 @@ export default function OpenAccount() {
                         <input type="text" className={styles.input} placeholder="As per PAN / Aadhaar" value={form.fullName} onChange={set('fullName')} />
                     </div>
                     <div className={styles.formGroup}>
+                        <label>Date of Birth (Required if New Customer ID)</label>
+                        <input type="date" className={styles.input} value={form.dob} onChange={set('dob')} />
+                    </div>
+                    <div className={styles.formGroup}>
                         <label>PAN Number</label>
                         <input type="text" className={styles.input} placeholder="ABCDE1234F" value={form.pan} onChange={set('pan')} />
                     </div>
                     <div className={styles.formGroup}>
                         <label>Phone Number</label>
                         <input type="tel" className={styles.input} placeholder="+91 98XXX XXXXX" value={form.phone} onChange={set('phone')} />
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label>Email (Optional)</label>
+                        <input type="email" className={styles.input} placeholder="name@example.com" value={form.email} onChange={set('email')} />
                     </div>
                 </div>
 
@@ -110,6 +126,21 @@ export default function OpenAccount() {
                     <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '10px', padding: '16px 20px' }}>
                         <div style={{ fontSize: '12px', color: '#10B981', fontFamily: 'DM Mono', letterSpacing: '0.1em' }}>ACCOUNT CREATED</div>
                         <div style={{ fontSize: '20px', fontWeight: 700, color: '#F8FAFC', marginTop: '4px' }}>{newAccId}</div>
+                    </div>
+                )}
+
+                {newCreds && (
+                    <div style={{ background: 'rgba(232,184,75,0.08)', border: '1px solid rgba(232,184,75,0.3)', borderRadius: '10px', padding: '20px', marginTop: '12px' }}>
+                        <div style={{ fontSize: '11px', color: '#E8B84B', fontFamily: 'DM Mono', letterSpacing: '0.12em', marginBottom: '14px' }}>🔑 CUSTOMER LOGIN CREDENTIALS</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '8px', fontSize: '13px' }}>
+                            <div style={{ color: '#94A3B8', fontFamily: 'DM Mono', fontSize: '11px' }}>USERNAME</div>
+                            <div style={{ color: '#F8FAFC', fontWeight: 700, fontFamily: 'DM Mono' }}>{newCreds.username}</div>
+                            <div style={{ color: '#94A3B8', fontFamily: 'DM Mono', fontSize: '11px' }}>PASSWORD</div>
+                            <div style={{ color: '#10B981', fontWeight: 700, fontFamily: 'DM Mono' }}>{newCreds.password}</div>
+                        </div>
+                        <div style={{ marginTop: '12px', fontSize: '11px', color: '#F59E0B', background: 'rgba(245,158,11,0.08)', padding: '8px 12px', borderRadius: '6px', lineHeight: '1.5' }}>
+                            ⚠ Credentials have been emailed to the customer. This is the only time the password is visible.
+                        </div>
                     </div>
                 )}
 

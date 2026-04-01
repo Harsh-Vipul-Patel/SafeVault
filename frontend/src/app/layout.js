@@ -1,6 +1,7 @@
 import './globals.css';
 
 import PageTransition from '../components/PageTransition';
+import SessionGuard from '../components/SessionGuard';
 
 export const metadata = {
   title: 'Safe Vault - Premium Banking System',
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <SessionGuard />
         <PageTransition>{children}</PageTransition>
       </body>
     </html>

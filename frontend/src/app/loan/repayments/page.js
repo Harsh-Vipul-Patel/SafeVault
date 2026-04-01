@@ -8,6 +8,7 @@ export default function EMI_Repayments() {
     const [loading, setLoading] = useState(false);
     const [fetchError, setFetchError] = useState('');
     const [payStatus, setPayStatus] = useState({ id: null, loading: false, message: '' });
+    const [errorModalConfig, setErrorModalConfig] = useState(null);
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -55,7 +56,19 @@ export default function EMI_Repayments() {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message);
+            if (!res.ok) {
+                if (data.message && data.message.includes('already paid')) {
+                    let dateStr = '15 Mar 2026';
+                    const emiObj = emis.find(e => e.EMI_ID === emiId);
+                    if (emiObj && emiObj.DUE_DATE) {
+                        dateStr = new Date(emiObj.DUE_DATE).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                    }
+                    setErrorModalConfig({ type: 'EMI_ALREADY_PAID', date: dateStr });
+                    setPayStatus({ id: null });
+                    return;
+                }
+                throw new Error(data.message);
+            }
 
             setPayStatus({ id: emiId, loading: false, message: 'Repayment Successful' });
 
@@ -158,6 +171,29 @@ export default function EMI_Repayments() {
                     </div>
                 )}
             </div>
+
+            {errorModalConfig && errorModalConfig.type === 'EMI_ALREADY_PAID' && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC', borderTop: '4px solid #EF4444' }}>
+                        <h3 style={{ marginBottom: '16px', color: '#EF4444', margin: '0 0 16px 0', fontSize: '18px' }}>Payment Error</h3>
+                        <p style={{ fontSize: '14px', color: '#E2E8F0', marginBottom: '8px' }}>
+                            EMI is already paid.
+                        </p>
+                        <p style={{ fontSize: '14px', color: '#94A3B8', marginBottom: '16px' }}>
+                            This installment has already been processed on {errorModalConfig.date}.
+                        </p>
+                        <p style={{ fontSize: '14px', color: '#94A3B8', marginBottom: '24px' }}>
+                            Please select a PENDING or OVERDUE EMI.
+                        </p>
+                        <button 
+                            onClick={() => setErrorModalConfig(null)} 
+                            style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            View EMI Schedule
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

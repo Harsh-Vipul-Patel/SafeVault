@@ -4,6 +4,7 @@ import styles from '../dashboard/page.module.css';
 
 const API = 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
+const ADMIN_ASSIGNABLE_ROLES = ['TELLER', 'BRANCH_MANAGER', 'LOAN_MANAGER'];
 
 export default function UserManagement() {
     const [users, setUsers] = useState([]);
@@ -158,7 +159,7 @@ export default function UserManagement() {
         try {
             const body = {};
             if (empEditData.fullName) body.fullName = empEditData.fullName;
-            if (empEditData.role) body.role = empEditData.role;
+            if (empEditData.role && ADMIN_ASSIGNABLE_ROLES.includes(empEditData.role)) body.role = empEditData.role;
             if (empEditData.branchId) body.branchId = empEditData.branchId;
 
             const res = await fetch(`${API}/api/admin/users/${empEditData.userId}`, {
@@ -241,7 +242,7 @@ export default function UserManagement() {
                                     <select name="role" value={formData.role} onChange={handleChange} required style={selectStyle}>
                                         <option value="TELLER">TELLER</option>
                                         <option value="BRANCH_MANAGER">BRANCH_MANAGER</option>
-                                        <option value="SYSTEM_ADMIN">SYSTEM_ADMIN</option>
+                                        <option value="SYSTEM_ADMIN" disabled>SYSTEM_ADMIN (RESTRICTED)</option>
                                         <option value="LOAN_MANAGER">LOAN_MANAGER</option>
                                     </select>
                                 </div>
@@ -347,7 +348,7 @@ export default function UserManagement() {
                                     <select value={empEditData.role} onChange={e => setEmpEditData({...empEditData, role: e.target.value})} style={selectStyle}>
                                         <option value="TELLER">TELLER</option>
                                         <option value="BRANCH_MANAGER">BRANCH_MANAGER</option>
-                                        <option value="SYSTEM_ADMIN">SYSTEM_ADMIN</option>
+                                        <option value="SYSTEM_ADMIN" disabled>SYSTEM_ADMIN (RESTRICTED)</option>
                                         <option value="LOAN_MANAGER">LOAN_MANAGER</option>
                                     </select>
                                 </div>

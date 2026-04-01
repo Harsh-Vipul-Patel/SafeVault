@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Lock, User, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
 import styles from './login.module.css';
@@ -24,6 +24,8 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [showGuide, setShowGuide] = useState(true);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const sessionExpired = searchParams.get('reason') === 'session_expired';
 
     const fillAndLogin = (cred) => {
         setUsername(cred.username);
@@ -103,6 +105,33 @@ export default function LoginPage() {
                         Safe Vault System · Secure Individual Login
                     </motion.div>
                 </motion.div>
+
+                <AnimatePresence>
+                    {sessionExpired && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            style={{
+                                background: 'rgba(239,68,68,0.1)',
+                                border: '1px solid rgba(239,68,68,0.35)',
+                                borderRadius: '10px',
+                                padding: '16px 20px',
+                                marginBottom: '8px',
+                                textAlign: 'center'
+                            }}
+                        >
+                            <div style={{ color: '#EF4444', fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>Session Expired</div>
+                            <div style={{ color: '#FCA5A5', fontSize: '13px', marginBottom: '12px' }}>Your session has timed out for security. Please log in again to continue.</div>
+                            <button
+                                onClick={() => router.replace('/login')}
+                                style={{ padding: '8px 20px', background: 'transparent', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                            >
+                                Login
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 <motion.form
                     onSubmit={handleLogin}

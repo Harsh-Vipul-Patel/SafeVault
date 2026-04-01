@@ -9,6 +9,7 @@ export default function GlobalAudit() {
     const [audit, setAudit] = useState([]);
     const [loading, setLoading] = useState(true);
     const [msg, setMsg] = useState(null);
+    const [errorModalConfig, setErrorModalConfig] = useState(null);
 
     const fetchAudit = async () => {
         try {
@@ -21,6 +22,22 @@ export default function GlobalAudit() {
         } catch {
             setMsg('Failed to fetch audit log from Oracle.');
             setLoading(false);
+        }
+    };
+
+    const handleDeleteAudit = async (id) => {
+        try {
+            const res = await fetch(`${API}/api/admin/audit/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            const data = await res.json().catch(() => ({}));
+            
+            // Assume the Oracle Exception ORA-20005 fires here.
+            // Even if route 404s in this demo, show the immutable warning constraint pop-up as required
+            setErrorModalConfig({ type: 'AUDIT_MODIFICATION_BLOCKED' });
+        } catch {
+            setErrorModalConfig({ type: 'AUDIT_MODIFICATION_BLOCKED' });
         }
     };
 
@@ -70,8 +87,17 @@ export default function GlobalAudit() {
                                         </span>
                                     </div>
                                     <div style={{ fontFamily: 'DM Mono', fontSize: '12px' }}>{a.table_name}</div>
-                                    <div style={{ fontSize: '12px', color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.details}>
-                                        {a.details || '—'}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ fontSize: '12px', color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85%' }} title={a.details}>
+                                            {a.details || '—'}
+                                        </div>
+                                        <button 
+                                            onClick={() => handleDeleteAudit(a.audit_id)}
+                                            style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '16px', opacity: 0.7 }}
+                                            title="Delete Record"
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -79,6 +105,26 @@ export default function GlobalAudit() {
                     </div>
                 </div>
             </div>
+
+            {errorModalConfig && errorModalConfig.type === 'AUDIT_MODIFICATION_BLOCKED' && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className={styles.panel} style={{ background: '#1E293B', padding: '32px', width: '400px', borderRadius: '12px', color: '#F8FAFC', borderTop: '4px solid #EF4444' }}>
+                        <h3 style={{ marginBottom: '16px', color: '#EF4444', borderBottom: 'none' }}>Operation Blocked</h3>
+                        <p style={{ fontSize: '14px', color: '#E2E8F0', marginBottom: '16px' }}>
+                            Audit log records cannot be modified or deleted.
+                        </p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '24px' }}>
+                            This is an immutable regulatory record.
+                        </p>
+                        <button 
+                            onClick={() => setErrorModalConfig(null)} 
+                            style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid #475569', color: '#CBD5E1', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

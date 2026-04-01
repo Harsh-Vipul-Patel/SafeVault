@@ -21,6 +21,7 @@ import {
     Search
 } from 'lucide-react';
 import styles from './manager.module.css';
+import DBNotifications from '../components/DBNotifications';
 
 export default function ManagerLayout({ children }) {
     const pathname = usePathname();
@@ -49,7 +50,7 @@ export default function ManagerLayout({ children }) {
         if (storedUser) {
             try {
                 const parsedUser = JSON.parse(storedUser);
-                if (!['BRANCH_MANAGER', 'SYSTEM_ADMIN'].includes(parsedUser.role)) {
+                if (!['BRANCH_MANAGER'].includes(parsedUser.role)) {
                     router.push('/login'); // Redirect unauthorized users
                 } else {
                     setUser({
@@ -187,10 +188,7 @@ export default function ManagerLayout({ children }) {
                             <span className={styles.timeGlow}> LIVE</span>
                         </div>
                         <div className={styles.actionBtn}><Settings size={18} /></div>
-                        <div className={styles.notificationBtn}>
-                            <Bell size={18} />
-                            <span className={styles.notifBadge}></span>
-                        </div>
+                        <DBNotifications bellClassName={styles.notificationBtn} />
                     </div>
                 </header>
 

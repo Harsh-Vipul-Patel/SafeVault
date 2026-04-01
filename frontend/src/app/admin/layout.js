@@ -21,10 +21,12 @@ import {
     Database
 } from 'lucide-react';
 import styles from './admin.module.css';
+import DBNotifications from '../components/DBNotifications';
 
 export default function AdminLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
+    const [userName, setUserName] = useState('System Root');
 
     const handleLogout = async () => {
         try {
@@ -49,6 +51,26 @@ export default function AdminLayout({ children }) {
             activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }, [pathname]);
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('suraksha_user');
+        if (!storedUser) {
+            router.push('/login');
+            return;
+        }
+
+        try {
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser.role !== 'SYSTEM_ADMIN') {
+                router.push('/login');
+                return;
+            }
+            setUserName(parsedUser.name || parsedUser.username || 'System Root');
+        } catch (e) {
+            console.error('Failed to parse user profile', e);
+            router.push('/login');
+        }
+    }, [router]);
 
     const navItems = [
         { icon: <Activity size={18} />, label: 'System Monitor', path: '/admin/dashboard' },
@@ -108,7 +130,7 @@ export default function AdminLayout({ children }) {
                         <Cpu size={20} />
                     </motion.div>
                     <div className={styles.info}>
-                        <div className={styles.name}>System Root</div>
+                        <div className={styles.name}>{userName}</div>
                         <div className={styles.role}>E/S Level: 0 (ABSOLUTE)</div>
                     </div>
                 </div>
@@ -165,8 +187,11 @@ export default function AdminLayout({ children }) {
                         <div className={styles.breadcrumb}>
                             Admin Console <ChevronRight size={14} /> <span className={styles.crumbActive}>{activeItem?.label || 'Infrastructure'}</span>
                         </div>
-                        <div className={styles.dateStamp}>
-                            {new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} IST
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <DBNotifications bellClassName="adminNotificationBell" />
+                            <div className={styles.dateStamp}>
+                                {new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} IST
+                            </div>
                         </div>
                     </div>
                 </header>

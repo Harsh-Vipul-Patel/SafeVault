@@ -24,6 +24,7 @@ import {
     Search
 } from 'lucide-react';
 import styles from './teller.module.css';
+import DBNotifications from '../components/DBNotifications';
 
 export default function TellerLayout({ children }) {
     const pathname = usePathname();
@@ -52,7 +53,7 @@ export default function TellerLayout({ children }) {
         if (storedUser) {
             try {
                 const parsedUser = JSON.parse(storedUser);
-                if (!['TELLER', 'BRANCH_MANAGER', 'SYSTEM_ADMIN'].includes(parsedUser.role)) {
+                if (!['TELLER', 'BRANCH_MANAGER'].includes(parsedUser.role)) {
                     router.push('/login'); // Redirect unauthorized users
                 } else {
                     setUser({
@@ -198,9 +199,12 @@ export default function TellerLayout({ children }) {
                             <div className={styles.bankTagline}>Branch Operations · Mumbai Central (BRN-MUM-003)</div>
                         </div>
                     </div>
-                    <div className={styles.sessionInfo}>
-                        <div className={styles.sessionLabel}>ACTIVE EMPLOYEE SESSION</div>
-                        <div className={styles.sessionTimer}>09:41:22</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <DBNotifications bellClassName="tellerNotificationBell" />
+                        <div className={styles.sessionInfo}>
+                            <div className={styles.sessionLabel}>ACTIVE EMPLOYEE SESSION</div>
+                            <div className={styles.sessionTimer}>09:41:22</div>
+                        </div>
                     </div>
                 </header>
 
