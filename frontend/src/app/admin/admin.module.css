@@ -220,6 +220,93 @@
     color: #FF4A4A !important;
 }
 
+@media (max-width: 1280px) {
+    .sidebar {
+        width: 280px;
+    }
+
+    .topbar,
+    .contentWrap {
+        padding-left: 32px;
+        padding-right: 32px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+    .navMenu {
+        max-height: 320px;
+    }
+
+    .mainContent {
+        min-height: auto;
+    }
+
+    .topbar {
+        height: auto;
+        min-height: 80px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .topActions {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .contentWrap {
+        padding-top: 32px;
+        padding-bottom: 32px;
+    }
+}
+
+@media (max-width: 768px) {
+    .brandBox,
+    .adminProfile,
+    .searchContainer,
+    .topbar,
+    .contentWrap {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .brandBox {
+        margin-bottom: 28px;
+    }
+
+    .topbar {
+        padding-top: 16px;
+        padding-bottom: 16px;
+        align-items: flex-start;
+    }
+
+    .breadcrumb,
+    .systemStatus {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .contentWrap {
+        padding-top: 24px;
+        padding-bottom: 24px;
+    }
+
+    .dangerBtn {
+        margin: 20px 16px 0;
+    }
+}
+
 /* MAIN CONTENT */
 .mainContent {
     flex: 1;

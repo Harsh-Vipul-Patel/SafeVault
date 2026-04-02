@@ -5,39 +5,48 @@
 
 .notifBadge {
     position: absolute;
-    top: -2px;
-    right: -2px;
-    width: 6px;
-    height: 6px;
-    background-color: #ff3b30;
+    top: -3px;
+    right: -3px;
+    width: 8px;
+    height: 8px;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
     border-radius: 50%;
-    box-shadow: 0 0 5px rgba(255, 59, 48, 0.6);
+    box-shadow: 0 0 6px rgba(255, 59, 48, 0.5);
+    animation: badgePulse 2s ease infinite;
 }
 
+@keyframes badgePulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+/* ── Panel ───────────────────────────────────── */
 .dropdownPanel {
     position: absolute;
-    top: calc(100% + 15px);
+    top: calc(100% + 12px);
     right: -10px;
-    width: 380px;
-    background: rgba(18, 20, 26, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    width: 400px;
+    background: rgba(15, 17, 23, 0.92);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 18px;
+    box-shadow:
+        0 24px 64px -12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
     z-index: 9999;
     overflow: hidden;
     color: #fff;
-    font-family: inherit;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, sans-serif;
 }
 
+/* ── Header ──────────────────────────────────── */
 .panelHeader {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.02);
+    padding: 18px 22px 14px;
 }
 
 .panelTitle {
@@ -46,8 +55,19 @@
     gap: 8px;
     margin: 0;
     font-size: 0.95rem;
-    font-weight: 600;
-    color: #e2e8f0;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: -0.01em;
+}
+
+.alertCount {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #64748b;
+    background: rgba(100, 116, 139, 0.12);
+    padding: 3px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.02em;
 }
 
 .liveIndicator {
@@ -76,87 +96,197 @@
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
+/* ── Scroll ──────────────────────────────────── */
 .logsList {
-    max-height: 400px;
+    max-height: 440px;
     overflow-y: auto;
-    padding: 10px 0;
+    padding: 6px 10px 10px;
 }
 
-/* Custom Scrollbar */
 .logsList::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
 }
 .logsList::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
+    background: transparent;
 }
 .logsList::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
 }
 .logsList::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.2);
 }
 
+/* ── Empty ───────────────────────────────────── */
 .emptyState {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
-    color: #64748b;
-    font-size: 0.9rem;
+    padding: 48px 20px;
+    color: #475569;
+    font-size: 0.85rem;
+    gap: 8px;
 }
 
 .emptyIcon {
-    margin-bottom: 12px;
-    opacity: 0.5;
+    opacity: 0.3;
 }
 
+/* ── Notification Card ───────────────────────── */
 .logItem {
-    padding: 12px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    transition: background-color 0.2s ease;
+    position: relative;
+    padding: 14px 16px;
+    margin-bottom: 4px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    transition: all 0.2s ease;
+    overflow: hidden;
 }
 
-.logItem:last-child {
-    border-bottom: none;
+.logItem::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 3px 0 0 3px;
+    background: var(--accent-color, #3b82f6);
 }
 
 .logItem:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+    transform: translateX(2px);
 }
 
+/* ── Card Header ─────────────────────────────── */
 .logHeader {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 6px;
+    gap: 10px;
+}
+
+.logIconWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.logEmoji {
+    font-size: 1rem;
+    flex-shrink: 0;
+    line-height: 1;
 }
 
 .logAction {
     font-weight: 600;
-    font-size: 0.85rem;
-    color: #f8fafc;
+    font-size: 0.82rem;
+    color: #e2e8f0;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
     word-break: break-word;
 }
 
 .logTime {
-    font-size: 0.7rem;
-    color: #94a3b8;
+    font-size: 0.65rem;
+    color: #64748b;
     white-space: nowrap;
-    margin-left: 12px;
+    flex-shrink: 0;
+    font-weight: 500;
+    padding-top: 1px;
 }
 
-.logSql {
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 0.75rem;
-    color: #cbd5e1;
-    opacity: 0.8;
-    line-height: 1.4;
+/* ── Card Message ────────────────────────────── */
+.logMessage {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.5;
     word-wrap: break-word;
+    padding-left: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
+
+.logMessage strong {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+/* ── Amount Badge ────────────────────────────── */
+.amountBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    margin-top: 6px;
+}
+
+.amountCredit {
+    background: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+}
+
+.amountDebit {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+}
+
+.amountNeutral {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+}
+
+/* ── Color themes for left border ────────────── */
+.typeCredit { --accent-color: #10b981; }
+.typeDebit { --accent-color: #ef4444; }
+.typeInfo { --accent-color: #3b82f6; }
+.typeWarning { --accent-color: #f59e0b; }
+.typeSuccess { --accent-color: #10b981; }
+.typeLoan { --accent-color: #8b5cf6; }
+.typeDeposit { --accent-color: #06b6d4; }
+.typeService { --accent-color: #ec4899; }
+
+@media (max-width: 640px) {
+    .dropdownPanel {
+        right: 0;
+        width: min(100vw - 24px, 420px);
+        border-radius: 16px;
+    }
+
+    .panelHeader {
+        padding: 16px 18px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .logsList {
+        max-height: 320px;
+    }
+
+    .logItem {
+        padding: 12px 14px;
+    }
+
+    .logHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .logTime {
+        white-space: normal;
+    }
+}
+.typeApproval { --accent-color: #f97316; }

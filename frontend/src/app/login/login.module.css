@@ -270,3 +270,51 @@
     color: var(--gold2);
     opacity: 0.8;
 }
+
+@media (max-width: 768px) {
+    .loginCard {
+        padding: 28px 20px;
+        max-width: 100%;
+    }
+
+    .bankName {
+        font-size: 34px;
+    }
+
+    .logoStack {
+        margin-bottom: 32px;
+    }
+
+    .footerLinks {
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .credGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 16px;
+    }
+
+    .loginCard {
+        padding: 24px 16px;
+    }
+
+    .bankName {
+        font-size: 30px;
+    }
+
+    .tagline {
+        letter-spacing: 0.14em;
+    }
+
+    .inputGroup input,
+    .loginBtn {
+        font-size: 15px;
+    }
+}

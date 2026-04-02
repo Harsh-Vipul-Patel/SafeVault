@@ -260,3 +260,86 @@
     border-color: rgba(248, 113, 113, 0.2) !important;
     color: #F87171 !important;
 }
+
+@media (max-width: 1280px) {
+    .sidebar {
+        width: 280px;
+    }
+
+    .topBar,
+    .pageBody {
+        padding-left: 32px;
+        padding-right: 32px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+    .navMenu {
+        max-height: 320px;
+    }
+
+    .mainContent {
+        min-height: auto;
+    }
+
+    .topBar {
+        height: auto;
+        min-height: 80px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .topActions {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .brand,
+    .userProfile,
+    .topBar,
+    .pageBody {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .brand {
+        margin-bottom: 28px;
+    }
+
+    .userProfile {
+        margin-left: 16px;
+        margin-right: 16px;
+    }
+
+    .topBar {
+        padding-top: 16px;
+        padding-bottom: 16px;
+        align-items: flex-start;
+    }
+
+    .breadcrumb {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .pageBody {
+        padding-top: 24px;
+        padding-bottom: 24px;
+    }
+
+    .logoutBtn {
+        margin: 20px 16px 0;
+    }
+}

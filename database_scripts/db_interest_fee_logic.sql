@@ -59,10 +59,11 @@ CREATE OR REPLACE PROCEDURE sp_post_savings_interest AS
     v_avg_bal NUMBER;
     v_interest_amt NUMBER;
     v_posted_txn_id NUMBER;
+    v_days_active NUMBER;
 BEGIN
     -- Only for Savings accounts (Basic Savings or Savings Premium)
     FOR r IN (
-        SELECT a.account_id, a.balance, at.type_name
+        SELECT a.account_id, a.balance, at.type_name, a.opened_date
         FROM ACCOUNTS a
         JOIN ACCOUNT_TYPES at ON a.account_type_id = at.type_id
         WHERE a.status = 'ACTIVE' 
@@ -70,10 +71,17 @@ BEGIN
     ) LOOP
         v_avg_bal := fn_get_average_balance(r.account_id);
         
-        -- Monthly interest = (Avg Bal * Rate) / 12
-        -- Since it's "till the day of the month", we might need to adjust, 
-        -- but usually it's posted monthly.
-        v_interest_amt := ROUND((v_avg_bal * v_interest_rate) / 12, 2);
+        -- Calculate days active for the preceding month (since job runs on 1st of the month)
+        IF TRUNC(r.opened_date, 'MM') = TRUNC(SYSDATE - 1, 'MM') THEN
+            -- Opened in the previous month (e.g. 16th), days = 1st of this month - date opened
+            v_days_active := TRUNC(SYSDATE) - TRUNC(r.opened_date);
+        ELSE
+            -- Opened before previous month, days = full days in previous month
+            v_days_active := TO_NUMBER(TO_CHAR(LAST_DAY(SYSDATE - 1), 'DD'));
+        END IF;
+
+        -- Exact interest based on days active
+        v_interest_amt := ROUND((v_avg_bal * v_interest_rate * v_days_active) / 365, 2);
         
         IF v_interest_amt > 0 THEN
             -- Update balance
@@ -102,7 +110,7 @@ BEGIN
             job_type        => ''PLSQL_BLOCK'',
             job_action      => ''BEGIN sp_post_savings_interest; END;'',
             start_date      => SYSTIMESTAMP,
-            repeat_interval => ''FREQ=DAILY; BYHOUR=0;'',
+            repeat_interval => ''FREQ=MONTHLY; BYMONTHDAY=1; BYHOUR=0;'',
             enabled         => TRUE
         );
     END;';

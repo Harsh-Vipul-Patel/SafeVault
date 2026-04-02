@@ -17,7 +17,8 @@ import {
     Briefcase
 } from 'lucide-react';
 import styles from './loan.module.css';
-import DBNotifications from '../../components/DBNotifications';
+import UserNotifications from '../../components/UserNotifications';
+import RouteGuard from '../../components/RouteGuard';
 
 export default function LoanManagerLayout({ children }) {
     const pathname = usePathname();
@@ -46,7 +47,7 @@ export default function LoanManagerLayout({ children }) {
             console.error('Logout API error:', err);
         }
         localStorage.clear();
-        router.push('/login');
+        router.replace('/login');
     };
 
     // Scroll active link into view
@@ -84,6 +85,7 @@ export default function LoanManagerLayout({ children }) {
     if (!hydrated) return null;
 
     return (
+        <RouteGuard allowedRoles={['LOAN_MANAGER']}>
         <div className={styles.layout}>
             {/* SIDEBAR NAVIGATION */}
             <motion.aside
@@ -166,7 +168,7 @@ export default function LoanManagerLayout({ children }) {
                             <span className={styles.statusDot}></span>
                         </div>
                         <div className={styles.actionBtn}><Settings size={18} /></div>
-                        <DBNotifications bellClassName={styles.notificationBtn} />
+                        <UserNotifications bellClassName={styles.notificationBtn} />
                     </div>
                 </header>
 
@@ -185,5 +187,6 @@ export default function LoanManagerLayout({ children }) {
                 </div>
             </main>
         </div>
+        </RouteGuard>
     );
 }

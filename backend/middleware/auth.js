@@ -49,6 +49,30 @@ const verifyToken = async (req, res, next) => {
             if (connection) await connection.close();
         }
 
+        // Asynchronously log the secured API visit
+        if (req.method !== 'GET' || (!req.originalUrl.includes('/system') && !req.originalUrl.includes('/queue'))) {
+            setTimeout(() => {
+                oracledb.getConnection().then(logConn => {
+                    logConn.execute(
+                        `INSERT INTO SYSTEM_ACTIVITY_LOG (user_id, username, user_role, action_type, description, endpoint, ip_address)
+                         VALUES (:uid, :uname, :role, :act, :desc, :url, :ip)`,
+                        {
+                            uid: decoded.id || null,
+                            uname: decoded.username || 'UNKNOWN',
+                            role: decoded.role || 'UNKNOWN',
+                            act: 'API_REQUEST',
+                            desc: `${req.method} request to ${req.originalUrl.split('?')[0]}`,
+                            url: req.originalUrl.substring(0, 199),
+                            ip: req.ip || req.connection.remoteAddress || 'UNKNOWN'
+                        },
+                        { autoCommit: true }
+                    ).catch(() => {}).finally(() => {
+                        try { logConn.close(); } catch (e) {}
+                    });
+                }).catch(() => {});
+            }, 0);
+        }
+
         next();
     } catch (err) {
         return res.status(401).json({ message: 'Unauthorized / Token Expired' });

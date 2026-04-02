@@ -34,13 +34,13 @@ BEGIN
         job_name        => 'SI_DAILY_EXECUTOR',
         job_type        => 'PLSQL_BLOCK',
         job_action      => 'BEGIN sp_execute_all_standing_instructions; END;',
-        start_date      => TRUNC(SYSDATE) + 7/24, -- Next 07:00
-        repeat_interval => 'FREQ=DAILY; BYHOUR=7; BYMINUTE=0; BYSECOND=0;',
+        start_date      => SYSTIMESTAMP,
+        repeat_interval => 'FREQ=HOURLY; BYMINUTE=0; BYSECOND=0;',
         enabled         => TRUE,
-        comments        => 'Daily executor for all due standing instructions at 07:00'
+        comments        => 'Hourly executor for due standing instructions (resilient to offline periods)'
     );
     
-    DBMS_OUTPUT.PUT_LINE('SUCCESS: SI_DAILY_EXECUTOR job created and enabled.');
+    DBMS_OUTPUT.PUT_LINE('SUCCESS: SI_DAILY_EXECUTOR job created and enabled (Hourly sweep).');
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('WARNING: Could not create SI_DAILY_EXECUTOR job — ' || SQLERRM);

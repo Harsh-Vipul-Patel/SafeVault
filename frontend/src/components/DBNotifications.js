@@ -1,25 +1,40 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Database, Activity } from 'lucide-react';
+import { Bell, ShieldAlert, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './notifications.module.css';
+import { useToast } from '../context/ToastContext';
 
 export default function DBNotifications({ bellClassName }) {
     const [isOpen, setIsOpen] = useState(false);
     const [logs, setLogs] = useState([]);
     const [hasNew, setHasNew] = useState(false);
     const dropdownRef = useRef(null);
+    const { showToast } = useToast();
 
-    // Fetch logs from backend
+    // Fetch logs from backend securely
     const fetchLogs = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/system/db-logs');
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            
+            const res = await fetch('http://localhost:5000/api/admin/system-logs', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
             if (res.ok) {
                 const data = await res.json();
                 
                 setLogs(prev => {
                     if (data.length > 0 && prev.length > 0 && data[0].id !== prev[0].id) {
-                        if (!isOpen) setHasNew(true);
+                        if (!isOpen) {
+                            setHasNew(true);
+                            // Filter out new logs that weren't in prev
+                            const newLogs = data.filter(d => !prev.some(p => p.id === d.id));
+                            newLogs.forEach(log => {
+                                showToast(`System Activity: ${log.action} - ${log.description}`, 'INFO', 5000);
+                            });
+                        }
                     } else if (prev.length === 0 && data.length > 0) {
                         if (!isOpen) setHasNew(true);
                     }
@@ -75,7 +90,7 @@ export default function DBNotifications({ bellClassName }) {
     return (
         <div className={styles.notificationContainer} ref={dropdownRef}>
             <div className={bellClassName} onClick={toggleOpen} role="button" tabIndex={0} style={{ cursor: 'pointer', position: 'relative' }}>
-                <Bell size={18} />
+                <ShieldAlert size={18} />
                 {hasNew && <span className={styles.notifBadge}></span>}
             </div>
 
@@ -87,10 +102,11 @@ export default function DBNotifications({ bellClassName }) {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
+                        style={{ minWidth: 350 }}
                     >
                         <div className={styles.panelHeader}>
                             <h3 className={styles.panelTitle}>
-                                <Database size={16} /> Oracle DB Executions
+                                <ShieldAlert size={16} /> Admin Auditing Live
                             </h3>
                             <div className={styles.liveIndicator}>
                                 <span className={styles.pulseDot}></span> Live
@@ -110,8 +126,8 @@ export default function DBNotifications({ bellClassName }) {
                                             <span className={styles.logAction}>{log.action}</span>
                                             <span className={styles.logTime}>{formatTime(log.timestamp)}</span>
                                         </div>
-                                        <div className={styles.logSql} title={log.sql}>
-                                            {log.name !== 'Oracle Action' ? log.name : log.sql}
+                                        <div className={styles.logSql} title={log.description}>
+                                            <strong>{log.user}</strong>: {log.description}
                                         </div>
                                     </div>
                                 ))

@@ -229,3 +229,22 @@ BEGIN
     COMMIT;
 END;
 /
+
+-- 7. Scheduler: LOAN_OVERDUE_MARKER
+BEGIN
+    EXECUTE IMMEDIATE '
+    BEGIN
+        DBMS_SCHEDULER.CREATE_JOB (
+            job_name        => ''LOAN_OVERDUE_MARKER'',
+            job_type        => ''PLSQL_BLOCK'',
+            job_action      => ''BEGIN sp_mark_loan_overdue; END;'',
+            start_date      => SYSTIMESTAMP,
+            repeat_interval => ''FREQ=DAILY; BYHOUR=1;'',
+            enabled         => TRUE
+        );
+    END;';
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Warning: Could not create LOAN_OVERDUE_MARKER job (insufficient privileges).');
+END;
+/

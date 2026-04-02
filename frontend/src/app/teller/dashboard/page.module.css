@@ -453,3 +453,68 @@
 .emptyCell {
     text-align: center;
 }
+
+@media (max-width: 1200px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .quickActions {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .tableWrapper {
+        overflow-x: auto;
+    }
+
+    .queueTable {
+        min-width: 760px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pageTitle {
+        font-size: 28px;
+    }
+
+    .cardHeader,
+    .modalHeader,
+    .formBody {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .cardHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .cardActions,
+    .priorityToggle,
+    .btnGroup {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .modalContent {
+        max-width: calc(100vw - 24px);
+        border-radius: 18px;
+    }
+
+    .modalHeader {
+        padding-top: 24px;
+        padding-bottom: 24px;
+    }
+
+    .formBody {
+        padding-top: 24px;
+        padding-bottom: 24px;
+    }
+
+    .priorityToggle {
+        flex-direction: column;
+    }
+}

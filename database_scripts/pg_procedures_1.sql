@@ -81,7 +81,7 @@ BEGIN
 
     -- Sender Notification
     INSERT INTO NOTIFICATION_LOG (customer_id, user_id, trigger_event, channel, message_clob)
-    VALUES (v_cust_id_s, v_user_s, 'TXN_ALERT', 'EMAIL', 
+    VALUES (v_cust_id_s, v_user_s, 'TXN_ALERT', 'IN_APP', 
         json_build_object(
             'customer_name', v_cust_name_s,
             'txn_type', 'TRANSFER_DEBIT',
@@ -95,7 +95,7 @@ BEGIN
 
     -- Receiver Notification
     INSERT INTO NOTIFICATION_LOG (customer_id, user_id, trigger_event, channel, message_clob)
-    VALUES (v_cust_id_r, v_user_r, 'TXN_ALERT', 'EMAIL', 
+    VALUES (v_cust_id_r, v_user_r, 'TXN_ALERT', 'IN_APP', 
         json_build_object(
             'customer_name', v_cust_name_r,
             'txn_type', 'TRANSFER_CREDIT',
@@ -145,7 +145,7 @@ BEGIN
     FROM CUSTOMERS c JOIN ACCOUNTS a ON c.customer_id = a.customer_id WHERE a.account_id = p_account_id;
 
     INSERT INTO NOTIFICATION_LOG (customer_id, user_id, trigger_event, channel, message_clob)
-    VALUES (v_cust_id, v_user, 'TXN_ALERT', 'EMAIL', 
+    VALUES (v_cust_id, v_user, 'TXN_ALERT', 'IN_APP', 
         json_build_object(
             'customer_name', v_cust_name,
             'txn_type', 'CREDIT',
@@ -201,7 +201,7 @@ BEGIN
     FROM CUSTOMERS c JOIN ACCOUNTS a ON c.customer_id = a.customer_id WHERE a.account_id = p_account_id;
 
     INSERT INTO NOTIFICATION_LOG (customer_id, user_id, trigger_event, channel, message_clob)
-    VALUES (v_cust_id, v_user, 'TXN_ALERT', 'EMAIL', 
+    VALUES (v_cust_id, v_user, 'TXN_ALERT', 'IN_APP', 
         json_build_object(
             'customer_name', v_cust_name,
             'txn_type', 'DEBIT',

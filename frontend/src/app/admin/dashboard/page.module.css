@@ -313,4 +313,57 @@
     color: var(--muted);
     font-family: 'DM Mono', monospace;
     font-size: 13px;
+
+@media (max-width: 1200px) {
+    .pageHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .sectionHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .tableContainer {
+        overflow-x: auto;
+    }
+
+    .dataTable {
+        min-width: 860px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pageTitle {
+        font-size: 28px;
+    }
+
+    .headerActions {
+        flex-wrap: wrap;
+    }
+
+    .kpiGrid {
+        gap: 16px;
+    }
+
+    .kpiCard,
+    .kpiCardAlert,
+    .sectionHeader {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .dataTable th,
+    .dataTable td {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .emptyTable {
+        padding: 40px 20px;
+    }
+}
 }

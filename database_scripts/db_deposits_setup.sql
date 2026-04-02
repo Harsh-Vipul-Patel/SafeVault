@@ -248,8 +248,8 @@ CREATE OR REPLACE PROCEDURE sp_premature_fd_closure (
 BEGIN
     SELECT * INTO v_fd FROM FD_ACCOUNTS WHERE fd_id = p_fd_id FOR UPDATE;
     
-    SELECT percentage_rate INTO v_penalty_rate 
-    FROM FEE_SCHEDULE WHERE fee_type = 'FD_PREMATURE_CLOSURE';
+    SELECT fee_amount INTO v_penalty_rate 
+    FROM FEE_SCHEDULE WHERE fee_id = 'FD_PREMATURE_CLOSURE';
 
     v_payout := v_fd.principal_amount * (1 - v_penalty_rate/100);
 

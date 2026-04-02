@@ -22,7 +22,8 @@ import {
     Landmark
 } from 'lucide-react';
 import styles from './customer.module.css';
-import DBNotifications from '../../components/DBNotifications';
+import UserNotifications from '../../components/UserNotifications';
+import RouteGuard from '../../components/RouteGuard';
 
 function decodeJWT(token) {
     try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
@@ -65,7 +66,7 @@ export default function CustomerLayout({ children }) {
             console.error('Logout API failed:', err);
         }
         localStorage.clear();
-        router.push('/login');
+        router.replace('/login');
     };
 
     const topNavItems = [
@@ -103,6 +104,7 @@ export default function CustomerLayout({ children }) {
     };
 
     return (
+        <RouteGuard allowedRoles={['CUSTOMER']}>
         <div className={styles.layout}>
             {/* SIDEBAR */}
             <motion.aside
@@ -190,7 +192,7 @@ export default function CustomerLayout({ children }) {
                         Safe Vault Portal <ChevronRight size={14} /> <span>{topNavItems.find(i => i.path === pathname)?.label || bottomNavItems.find(i => i.path === pathname)?.label || 'Dashboard'}</span>
                     </div>
                     <div className={styles.topActions}>
-                        <DBNotifications bellClassName={styles.notificationBell} />
+                        <UserNotifications bellClassName={styles.notificationBell} />
                     </div>
                 </header>
                 <div className={styles.pageBody}>
@@ -198,5 +200,6 @@ export default function CustomerLayout({ children }) {
                 </div>
             </main>
         </div>
+        </RouteGuard>
     );
 }

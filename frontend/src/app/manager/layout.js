@@ -21,7 +21,8 @@ import {
     Search
 } from 'lucide-react';
 import styles from './manager.module.css';
-import DBNotifications from '../../components/DBNotifications';
+import UserNotifications from '../../components/UserNotifications';
+import RouteGuard from '../../components/RouteGuard';
 
 export default function ManagerLayout({ children }) {
     const pathname = usePathname();
@@ -40,7 +41,7 @@ export default function ManagerLayout({ children }) {
             console.error('Logout API error:', err);
         }
         localStorage.clear();
-        router.push('/login');
+        router.replace('/login');
     };
 
     const [user, setUser] = useState({ name: 'Loading...', role: 'BRANCH_MANAGER', branch: '---' });
@@ -106,6 +107,7 @@ export default function ManagerLayout({ children }) {
     const activeItem = navItems.find(item => item.path === pathname);
 
     return (
+        <RouteGuard allowedRoles={['BRANCH_MANAGER']}>
         <div className={styles.layout}>
             {/* SIDEBAR NAVIGATION */}
             <motion.aside
@@ -188,7 +190,7 @@ export default function ManagerLayout({ children }) {
                             <span className={styles.timeGlow}> LIVE</span>
                         </div>
                         <div className={styles.actionBtn}><Settings size={18} /></div>
-                        <DBNotifications bellClassName={styles.notificationBtn} />
+                        <UserNotifications bellClassName={styles.notificationBtn} />
                     </div>
                 </header>
 
@@ -207,5 +209,6 @@ export default function ManagerLayout({ children }) {
                 </div>
             </main>
         </div>
+        </RouteGuard>
     );
 }

@@ -24,7 +24,8 @@ import {
     Search
 } from 'lucide-react';
 import styles from './teller.module.css';
-import DBNotifications from '../../components/DBNotifications';
+import UserNotifications from '../../components/UserNotifications';
+import RouteGuard from '../../components/RouteGuard';
 
 export default function TellerLayout({ children }) {
     const pathname = usePathname();
@@ -43,7 +44,7 @@ export default function TellerLayout({ children }) {
             console.error('Logout API error:', err);
         }
         localStorage.clear();
-        router.push('/login');
+        router.replace('/login');
     };
 
     const [user, setUser] = useState({ name: 'Loading...', role: 'TELLER', branch: '---' });
@@ -115,6 +116,7 @@ export default function TellerLayout({ children }) {
     };
 
     return (
+        <RouteGuard allowedRoles={['TELLER', 'BRANCH_MANAGER']}>
         <div className={styles.layout}>
             {/* SIDEBAR */}
             <motion.aside
@@ -200,7 +202,7 @@ export default function TellerLayout({ children }) {
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <DBNotifications bellClassName="tellerNotificationBell" />
+                        <UserNotifications bellClassName="tellerNotificationBell" />
                         <div className={styles.sessionInfo}>
                             <div className={styles.sessionLabel}>ACTIVE EMPLOYEE SESSION</div>
                             <div className={styles.sessionTimer}>09:41:22</div>
@@ -232,5 +234,6 @@ export default function TellerLayout({ children }) {
                 </footer>
             </div>
         </div>
+        </RouteGuard>
     );
 }

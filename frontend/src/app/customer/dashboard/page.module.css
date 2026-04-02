@@ -293,3 +293,64 @@
         transform: rotate(360deg);
     }
 }
+
+@media (max-width: 1200px) {
+    .cardsRow {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .splitGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .headerRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .greeting {
+        font-size: 26px;
+    }
+
+    .cardsRow {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .summaryCard,
+    .tableContainer {
+        padding: 20px;
+    }
+
+    .cardAmount,
+    .cardAmountGreen,
+    .cardAmountRed {
+        font-size: 28px;
+    }
+
+    .tableContainer {
+        overflow-x: auto;
+    }
+
+    .txnTable {
+        min-width: 720px;
+    }
+
+    .txnDesc {
+        max-width: none;
+        white-space: normal;
+    }
+
+    .actionsRow {
+        flex-wrap: wrap;
+    }
+
+    .btnPrimary,
+    .btnSecondary {
+        flex: 1 1 220px;
+        justify-content: center;
+    }
+}

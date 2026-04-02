@@ -317,3 +317,87 @@
     border-color: rgba(248, 113, 113, 0.2) !important;
     color: #F87171 !important;
 }
+
+@media (max-width: 1280px) {
+    .sidebar {
+        width: 260px;
+    }
+
+    .masthead,
+    .contentArea {
+        padding-left: 32px;
+        padding-right: 32px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+    .navMenu {
+        max-height: 320px;
+    }
+
+    .contentColumn {
+        min-height: auto;
+    }
+
+    .masthead {
+        height: auto;
+        min-height: 80px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .contentArea {
+        padding-top: 32px;
+        padding-bottom: 32px;
+    }
+}
+
+@media (max-width: 768px) {
+    .employeeCard,
+    .searchBox,
+    .masthead,
+    .contentArea {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .employeeCard {
+        margin-left: 16px;
+        margin-right: 16px;
+    }
+
+    .masthead {
+        padding-top: 16px;
+        padding-bottom: 16px;
+        align-items: flex-start;
+    }
+
+    .masthead > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .bankBrand {
+        align-items: flex-start;
+    }
+
+    .contentArea {
+        padding-top: 24px;
+        padding-bottom: 24px;
+    }
+
+    .logoutBtn {
+        margin: 20px 16px 0;
+    }
+}

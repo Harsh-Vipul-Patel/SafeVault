@@ -248,3 +248,38 @@
 .emptyIcon {
     font-size: 36px;
 }
+
+@media (max-width: 900px) {
+    .contentGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .filterPanel,
+    .historyPanel {
+        padding: 20px;
+    }
+
+    .dateGroup {
+        flex-direction: column;
+    }
+
+    .listItem {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .txnTableWrap {
+        overflow-x: auto;
+    }
+
+    .txnTable {
+        min-width: 760px;
+    }
+
+    .summaryCard {
+        padding: 14px;
+    }
+}

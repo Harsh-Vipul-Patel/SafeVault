@@ -48,6 +48,42 @@ async function generateUniqueBranchIfsc(connection, branchId) {
     throw new Error('Could not generate unique IFSC code for this branch.');
 }
 
+// GET /api/admin/system-logs
+// Fetch all logged system activities
+router.get('/system-logs', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+        const result = await connection.execute(
+            `SELECT log_id AS "id", username AS "user", user_role AS "role", action_type AS "action", 
+                    description, endpoint, ip_address, created_at AS "timestamp"
+             FROM SYSTEM_ACTIVITY_LOG 
+             ORDER BY created_at DESC 
+             FETCH FIRST 100 ROWS ONLY`,
+            {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        
+        // Normalize column casing for frontend
+        const logs = result.rows.map(r => ({
+            id: r.id || r.ID,
+            user: r.user || r.USER,
+            role: r.role || r.ROLE,
+            action: r.action || r.ACTION,
+            description: r.DESCRIPTION || r.description,
+            endpoint: r.ENDPOINT || r.endpoint,
+            ipAddress: r.IP_ADDRESS || r.ip_address,
+            timestamp: r.timestamp || r.TIMESTAMP
+        }));
+        
+        res.json(logs);
+    } catch (err) {
+        console.error('Fetch system logs error:', err);
+        res.status(500).json({ message: 'Could not fetch system logs: ' + err.message });
+    } finally {
+        if (connection) await connection.close();
+    }
+});
+
 // GET /api/admin/monitor
 // Fetch DB sessions, active jobs, failed logins overview
 router.get('/monitor', async (req, res) => {

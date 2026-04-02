@@ -370,3 +370,57 @@
     color: var(--muted);
     font-size: 13px;
 }
+
+@media (max-width: 1200px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .splitGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .tableWrap {
+        overflow-x: auto;
+    }
+
+    .thRow,
+    .tdRow {
+        min-width: 720px;
+    }
+}
+
+@media (max-width: 768px) {
+    .greeting {
+        font-size: 28px;
+    }
+
+    .headerActions {
+        flex-wrap: wrap;
+    }
+
+    .panelHeader,
+    .thRow,
+    .tdRow,
+    .feedItem {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .kpiCard,
+    .kpiCardAlert {
+        padding: 20px;
+    }
+
+    .panelHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .feedList {
+        max-height: none;
+    }
+}

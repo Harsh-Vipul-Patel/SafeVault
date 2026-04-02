@@ -166,3 +166,34 @@
 .btnAction:hover {
     background: rgba(255, 255, 255, 0.1);
 }
+
+@media (max-width: 900px) {
+    .accountGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .accountCard {
+        padding: 24px;
+    }
+
+    .accHeader,
+    .accActions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .detailRow {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .detailRow span:last-child {
+        text-align: left;
+    }
+
+    .btnAction {
+        width: 100%;
+    }
+}

@@ -40,6 +40,11 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--navy);
@@ -47,6 +52,37 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   background-attachment: fixed;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+table {
+  width: 100%;
+}
+
+@media (max-width: 1280px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
 }
 
 /* ── LUXURY UTILITIES ── */

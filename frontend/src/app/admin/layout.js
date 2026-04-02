@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import styles from './admin.module.css';
 import DBNotifications from '../../components/DBNotifications';
+import RouteGuard from '../../components/RouteGuard';
 
 export default function AdminLayout({ children }) {
     const pathname = usePathname();
@@ -41,7 +42,7 @@ export default function AdminLayout({ children }) {
             console.error('Logout API error:', err);
         }
         localStorage.clear();
-        router.push('/login');
+        router.replace('/login');
     };
 
     // Scroll active link into view
@@ -102,6 +103,7 @@ export default function AdminLayout({ children }) {
     const activeItem = navItems.find(item => item.path === pathname);
 
     return (
+        <RouteGuard allowedRoles={['SYSTEM_ADMIN']}>
         <div className={styles.layout}>
             {/* SIDEBAR NAVIGATION (Darker Theme for Admin) */}
             <motion.aside
@@ -211,5 +213,6 @@ export default function AdminLayout({ children }) {
                 </div>
             </main>
         </div>
+        </RouteGuard>
     );
 }

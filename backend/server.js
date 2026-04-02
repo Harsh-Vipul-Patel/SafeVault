@@ -25,35 +25,35 @@ oracledb.getConnection = async function(...args) {
         let pName = "Oracle Action";
         const upperSql = sql.toUpperCase();
         
-        // Extract procedure/function name from BEGIN blocks
-        if (upperSql.includes('BEGIN')) {
-            const match = sql.match(/(?:BEGIN\s+|;\s*)([a-zA-Z0-9_\.]+)\s*\(/i);
-            if (match) {
-                pName = match[1];
-                action = `Procedure/Function: ${pName}`;
-            } else {
-                action = "PL/SQL Block Executed";
+        // Skip logging if the query itself is hitting SYSTEM_ACTIVITY_LOG to prevent infinite recursion
+        if (!upperSql.includes('SYSTEM_ACTIVITY_LOG')) {
+            // Extract procedure/function name from BEGIN blocks
+            if (upperSql.includes('BEGIN')) {
+                const match = sql.match(/(?:BEGIN\s+|;\s*)([a-zA-Z0-9_\.]+)\s*\(/i);
+                if (match) {
+                    pName = match[1];
+                    action = `Procedure/Function: ${pName}`;
+                } else {
+                    action = "PL/SQL Block Executed";
+                }
+            } else if (upperSql.trim().startsWith('INSERT') || upperSql.trim().startsWith('UPDATE') || upperSql.trim().startsWith('DELETE')) {
+                const tableNameMatch = upperSql.match(/(?:INTO|UPDATE|FROM)\s+([a-zA-Z0-9_]+)/i);
+                const table = tableNameMatch ? tableNameMatch[1] : 'Table';
+                const type = upperSql.trim().split(' ')[0];
+                action = `${type} on ${table}`;
+                pName = `${type} ${table}`;
             }
-        } else if (upperSql.trim().startsWith('INSERT') || upperSql.trim().startsWith('UPDATE') || upperSql.trim().startsWith('DELETE')) {
-            const tableNameMatch = upperSql.match(/(?:INTO|UPDATE|FROM)\s+([a-zA-Z0-9_]+)/i);
-            const table = tableNameMatch ? tableNameMatch[1] : 'Table';
-            const type = upperSql.trim().split(' ')[0];
-            action = `${type} on ${table}`;
-            pName = `${type} ${table}`;
-        }
-        
-        if (action) {
-            const logEntry = {
-                id: Date.now() + Math.random().toString(36).substr(2, 9),
-                sql: sql,
-                action: action,
-                name: pName,
-                timestamp: new Date().toISOString()
-            };
             
-            global.dbLogs.unshift(logEntry);
-            if (global.dbLogs.length > maxLogs) {
-                global.dbLogs.pop();
+            if (action) {
+                // Securely log the Oracle action into the DB asynchronously
+                setTimeout(() => {
+                    originalExecute.apply(connection, [
+                        `INSERT INTO SYSTEM_ACTIVITY_LOG (user_id, username, user_role, action_type, description, endpoint, ip_address)
+                         VALUES (NULL, 'SYSTEM', 'SYSTEM_ADMIN', 'ORACLE_PROCEDURE', :desc, :sql, NULL)`,
+                        { desc: action, sql: sql.substring(0, 199) },
+                        { autoCommit: true }
+                    ]).catch(() => {});
+                }, 0);
             }
         }
         
