@@ -21,7 +21,7 @@ import {
     Search
 } from 'lucide-react';
 import styles from './manager.module.css';
-import DBNotifications from '../components/DBNotifications';
+import DBNotifications from '../../components/DBNotifications';
 
 export default function ManagerLayout({ children }) {
     const pathname = usePathname();

@@ -24,7 +24,7 @@ import {
     Search
 } from 'lucide-react';
 import styles from './teller.module.css';
-import DBNotifications from '../components/DBNotifications';
+import DBNotifications from '../../components/DBNotifications';
 
 export default function TellerLayout({ children }) {
     const pathname = usePathname();

@@ -21,7 +21,7 @@ import {
     Database
 } from 'lucide-react';
 import styles from './admin.module.css';
-import DBNotifications from '../components/DBNotifications';
+import DBNotifications from '../../components/DBNotifications';
 
 export default function AdminLayout({ children }) {
     const pathname = usePathname();

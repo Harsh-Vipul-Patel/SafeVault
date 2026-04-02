@@ -17,7 +17,7 @@ import {
     Briefcase
 } from 'lucide-react';
 import styles from './loan.module.css';
-import DBNotifications from '../components/DBNotifications';
+import DBNotifications from '../../components/DBNotifications';
 
 export default function LoanManagerLayout({ children }) {
     const pathname = usePathname();
