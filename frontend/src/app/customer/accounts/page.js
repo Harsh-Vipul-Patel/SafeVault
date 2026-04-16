@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from './page.module.css';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 function formatINR(amount) {
     if (amount === null || amount === undefined) return '—';

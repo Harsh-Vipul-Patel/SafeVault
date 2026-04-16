@@ -18,10 +18,8 @@
     "express": "^5.2.1",
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^8.0.1",
     "oracledb": "^6.10.0",
     "pdfkit": "^0.17.2",
-    "pg": "^8.20.0",
     "qr-image": "^3.2.0",
     "resend": "^6.9.3"
   }

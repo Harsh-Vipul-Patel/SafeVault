@@ -46,7 +46,6 @@ export default function SessionGuard() {
             window.fetch = originalFetch;
             window.__sessionGuardInstalled = false;
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Renders nothing — pure side-effect component

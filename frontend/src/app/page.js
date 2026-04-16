@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { ShieldCheck, BarChart3, Users, Zap, ArrowRight, Lock, ChevronDown, UserCircle2 } from "lucide-react";
-import Link from "next/link";
+import React, { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { ShieldCheck, BarChart3, Users, Zap, ArrowRight, Lock, ChevronDown, UserCircle2, Landmark, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const sectionRefs = useRef({});
 
   useEffect(() => {
     const handleScroll = () => {
@@ -59,14 +59,14 @@ export default function Home() {
         className={scrolled ? "glass-surface" : ""}
         style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-          padding: "1rem 2rem", transition: "all 0.3s ease",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "1rem 1.5rem", transition: "all 0.3s ease",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem",
           borderBottom: scrolled ? "1px solid var(--glass-border)" : "1px solid transparent",
           backgroundColor: scrolled ? "rgba(13, 27, 42, 0.8)" : "transparent",
           backdropFilter: scrolled ? "blur(12px)" : "none"
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontFamily: "'Playfair Display', serif" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>
           <div style={{ 
             background: "var(--grad-gold)", color: "var(--navy)", padding: "0.4rem", 
             borderRadius: "var(--r-sm)", display: "flex", alignItems: "center", justifyContent: "center"
@@ -77,10 +77,10 @@ export default function Home() {
         </div>
         
         <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <button 
+          <button
             onClick={scrollToFeatures}
-            style={{ 
-              background: "none", border: "none", color: "var(--cream)", 
+            style={{
+              background: "none", border: "none", color: "var(--cream)",
               cursor: "pointer", fontSize: "0.95rem", fontWeight: 500, letterSpacing: "0.5px"
             }}
           >
@@ -150,7 +150,7 @@ export default function Home() {
                 <ArrowRight size={20} />
               </button>
               <button 
-                onClick={scrollToFeatures}
+                onClick={() => scrollToSection("what-we-do")}
                 className="glass-surface"
                 style={{
                   color: "var(--white)", padding: "1rem 2.5rem", fontSize: "1.05rem", fontWeight: 600,
@@ -181,7 +181,7 @@ export default function Home() {
         </section>
 
         {/* What We Do Section */}
-        <section id="what-we-do" style={{ paddingTop: "8rem", paddingBottom: "4rem" }}>
+        <section id="what-we-do" style={{ minHeight: "100vh", paddingTop: "8rem", paddingBottom: "4rem", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <motion.div 
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -256,6 +256,101 @@ export default function Home() {
                 <p style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.95rem", zIndex: 1 }}>
                   {feature.desc}
                 </p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Access Portal Section */}
+        <section
+          id="portal"
+          style={{ minHeight: "100vh", paddingTop: "8rem", paddingBottom: "4rem", display: "flex", flexDirection: "column", justifyContent: "center" }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8 }}
+            style={{ textAlign: "center", marginBottom: "4rem" }}
+          >
+            <span className="text-gradient-gold" style={{ fontSize: "0.9rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px" }}>
+              Access Portal
+            </span>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "3rem", marginBottom: "1rem", marginTop: "0.75rem" }}>
+              Stop on the section you need.
+            </h2>
+            <p style={{ color: "var(--muted)", maxWidth: "760px", margin: "0 auto", fontSize: "1.05rem", lineHeight: 1.7 }}>
+              The menu now tracks your scroll position. As you settle on a panel, the corresponding page stays active and the portal options become the next stop.
+            </p>
+          </motion.div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.5rem" }}>
+            {[
+              {
+                title: "Customer Portal",
+                icon: UserCircle2,
+                desc: "Account views, transfers, cheques, and self-service requests for everyday banking.",
+                color: "var(--customer)"
+              },
+              {
+                title: "Branch Operations",
+                icon: Landmark,
+                desc: "Operational workspaces for tellers, managers, and lending teams in one flow.",
+                color: "var(--teller)"
+              },
+              {
+                title: "System Administration",
+                icon: ShieldAlert,
+                desc: "Root-level monitoring, config control, and audit visibility for platform operators.",
+                color: "var(--admin)"
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.6, delay: index * 0.12 }}
+                className="dashboard-card"
+                style={{ display: "flex", flexDirection: "column", gap: "1rem", minHeight: "260px", justifyContent: "space-between" }}
+              >
+                <div>
+                  <div style={{
+                    width: "56px",
+                    height: "56px",
+                    borderRadius: "16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: item.color,
+                    background: "rgba(255,255,255,0.05)",
+                    marginBottom: "1rem"
+                  }}>
+                    <item.icon size={24} />
+                  </div>
+                  <h3 style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "'Playfair Display', serif", marginBottom: "0.8rem" }}>
+                    {item.title}
+                  </h3>
+                  <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                    {item.desc}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => router.push("/login")}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "transparent",
+                    color: "var(--cream)",
+                    border: "1px solid var(--glass-border)",
+                    padding: "0.75rem 1.2rem",
+                    borderRadius: "999px",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  Open Login
+                </button>
               </motion.div>
             ))}
           </div>

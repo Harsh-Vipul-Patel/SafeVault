@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from '../forms.module.css';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
 
 function formatINR(n) {
@@ -16,7 +16,7 @@ export default function TellerReports() {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null);
 
-    const fetchReport = async () => {
+    const fetchReport = useCallback(async () => {
         setLoading(true); setMsg(null); setStats(null); setTxns([]);
         try {
             const res = await fetch(`${API}/api/teller/daily-report?date=${date}`, {
@@ -33,9 +33,9 @@ export default function TellerReports() {
             setMsg({ type: 'error', text: 'Network error. Is the backend running?' });
         }
         setLoading(false);
-    };
+    }, [date]);
 
-    useEffect(() => { fetchReport(); }, []);
+    useEffect(() => { fetchReport(); }, [fetchReport]);
 
     return (
         <div className={styles.pageWrap}>

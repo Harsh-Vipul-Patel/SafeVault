@@ -21,7 +21,7 @@ export default function ApplicationIntake() {
 
         try {
             const token = localStorage.getItem('suraksha_token');
-            const res = await fetch('http://localhost:5000/api/loan-manager/application/intake', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/loan-manager/application/intake`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

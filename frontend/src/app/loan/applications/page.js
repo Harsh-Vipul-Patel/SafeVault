@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import styles from '../loan-pages.module.css';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const getToken = () => localStorage.getItem('suraksha_token');
 
 export default function ApplicationTracking() {
@@ -49,14 +49,14 @@ export default function ApplicationTracking() {
         }
     };
 
-    const handleGenerateEmi = async (id, app) => {
-        setActionStatus({ id: id + '_emi', loading: true, message: '' });
+    const handleGenerateEmi = async (appId, loanAccountId, app) => {
+        setActionStatus({ id: appId + '_emi', loading: true, message: '' });
         try {
             const res = await fetch(`${API}/api/loan-manager/emi/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
                 body: JSON.stringify({
-                    loanAccountId: id,
+                    loanAccountId: loanAccountId,
                     principal: app.OUTSTANDING_PRINCIPAL || app.REQUESTED_AMOUNT,
                     annualRate: app.ANNUAL_RATE || 9.5,
                     tenureMonths: app.TENURE_MONTHS || 12
@@ -64,10 +64,11 @@ export default function ApplicationTracking() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message);
-            setActionStatus({ id: id + '_emi', loading: false, message: 'EMI Schedule Generated ✓' });
+            setActionStatus({ id: appId + '_emi', loading: false, message: 'EMI Schedule Generated ✓' });
+            fetchLoans();
             setTimeout(() => setActionStatus({ id: null }), 3000);
         } catch (err) {
-            setActionStatus({ id: id + '_emi', loading: false, message: 'Error: ' + err.message });
+            setActionStatus({ id: appId + '_emi', loading: false, message: 'Error: ' + err.message });
             setTimeout(() => setActionStatus({ id: null }), 5000);
         }
     };
@@ -253,7 +254,7 @@ export default function ApplicationTracking() {
                                             {/* Recovery: DISBURSED but no EMI — rare edge case */}
                                             {l.APP_STATUS === 'DISBURSED' && l.LOAN_ACCOUNT_ID && (
                                                 <button
-                                                    onClick={() => handleGenerateEmi(l.LOAN_ACCOUNT_ID, l)}
+                                                    onClick={() => handleGenerateEmi(l.LOAN_APP_ID, l.LOAN_ACCOUNT_ID, l)}
                                                     className={styles.submitBtn}
                                                     style={{ padding: '5px 10px', fontSize: '11px', background: 'rgba(156,163,175,0.15)', color: '#9CA3AF', boxShadow: 'none' }}>
                                                     ↻ Recover EMI

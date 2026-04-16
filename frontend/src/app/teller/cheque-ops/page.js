@@ -4,7 +4,7 @@ import styles from '../../teller/teller.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Book, CheckCircle, XCircle, Loader2, Landmark, Tag, ShieldCheck, CreditCard, ArrowRight, AlertCircle } from 'lucide-react';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
 
 export default function TellerChequeOps() {

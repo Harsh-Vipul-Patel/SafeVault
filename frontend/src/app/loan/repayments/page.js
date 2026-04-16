@@ -20,7 +20,7 @@ export default function EMI_Repayments() {
 
         try {
             const token = localStorage.getItem('suraksha_token');
-            const res = await fetch(`http://localhost:5000/api/loan-manager/account/${accountId.trim()}/emis`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/loan-manager/account/${accountId.trim()}/emis`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -46,7 +46,7 @@ export default function EMI_Repayments() {
 
         try {
             const token = localStorage.getItem('suraksha_token');
-            const res = await fetch(`http://localhost:5000/api/loan-manager/emi/pay`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/loan-manager/emi/pay`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

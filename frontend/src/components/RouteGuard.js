@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 /**
@@ -24,7 +24,7 @@ export default function RouteGuard({ allowedRoles, children }) {
     const pathname = usePathname();
     const [authorized, setAuthorized] = useState(false);
 
-    const checkSession = () => {
+    const checkSession = useCallback(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : null;
 
         if (!token) {
@@ -61,12 +61,12 @@ export default function RouteGuard({ allowedRoles, children }) {
         }
 
         setAuthorized(true);
-    };
+    }, [allowedRoles, router]);
 
     // Check on mount AND on every route change
     useEffect(() => {
         checkSession();
-    }, [pathname]);
+    }, [pathname, checkSession]);
 
     // Also check when tab becomes visible again and on popstate (back/forward)
     useEffect(() => {
@@ -87,7 +87,7 @@ export default function RouteGuard({ allowedRoles, children }) {
             document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('popstate', handlePopState);
         };
-    }, []);
+    }, [checkSession]);
 
     // Don't render children until authorized — prevents flash of protected content
     if (!authorized) {

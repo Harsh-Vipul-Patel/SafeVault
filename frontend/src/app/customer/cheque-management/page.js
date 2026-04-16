@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
@@ -40,11 +40,7 @@ export default function ChequeManagement() {
 
     const getToken = () => localStorage.getItem('suraksha_token');
 
-    useEffect(() => {
-        fetchBooks();
-    }, []);
-
-    const fetchBooks = async () => {
+    const fetchBooks = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`${API}/api/customer/cheque/books`, {
@@ -60,7 +56,11 @@ export default function ChequeManagement() {
             setError('System Link Interrupted: Oracle Connection Timeout');
         }
         setLoading(false);
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchBooks();
+    }, [fetchBooks]);
 
     const fetchHistory = async (bookId) => {
         setLoading(true);

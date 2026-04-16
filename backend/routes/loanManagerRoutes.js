@@ -293,6 +293,9 @@ router.get('/reports/portfolio', verifyToken, requireRole(LOAN_ROLES), async (re
                     acc.loan_account_id, 
                     c.full_name as customer_name,
                     la.loan_type,
+                    la.requested_amount,
+                    la.annual_rate,
+                    la.tenure_months,
                     NVL(acc.outstanding_principal, la.requested_amount) as outstanding_principal,
                     acc.status as account_status,
                     la.status as app_status

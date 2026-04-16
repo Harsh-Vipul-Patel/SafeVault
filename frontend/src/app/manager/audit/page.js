@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from '../views.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -10,11 +10,7 @@ export default function BranchAuditLog() {
     const [error, setError] = useState(null);
     const [dateFilter, setDateFilter] = useState('');
 
-    useEffect(() => {
-        fetchAudit();
-    }, [dateFilter]);
-
-    const fetchAudit = async () => {
+    const fetchAudit = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('suraksha_token');
@@ -32,7 +28,11 @@ export default function BranchAuditLog() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [dateFilter]);
+
+    useEffect(() => {
+        fetchAudit();
+    }, [fetchAudit]);
 
     const formatTimestamp = (ts) => {
         if (!ts) return '--';

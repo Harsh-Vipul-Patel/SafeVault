@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from '../internal/page.module.css';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
 
 function formatINR(n) {
@@ -11,6 +12,7 @@ function formatINR(n) {
 }
 
 export default function ExternalTransfer() {
+  const router = useRouter();
   const [accounts, setAccounts] = useState([]);
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccount, setToAccount] = useState('');
@@ -99,7 +101,8 @@ export default function ExternalTransfer() {
   };
 
   const submitTransfer = async () => {
-    if (!otpCode || otpCode.length < 6) {
+    const cleanOtp = (otpCode || '').trim();
+    if (!cleanOtp || cleanOtp.length < 6) {
       setMessage({ type: 'error', text: 'Please enter a valid 6-digit OTP.' });
       return;
     }
@@ -108,13 +111,14 @@ export default function ExternalTransfer() {
       const res = await fetch(`${API}/api/customer/transfer/external`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ fromAccountId, toAccount, ifsc, mode, amount: Number(amount), otpCode })
+        body: JSON.stringify({ fromAccountId, toAccount, ifsc, mode, amount: Number(amount), otpCode: cleanOtp })
       });
       const data = await res.json();
       if (res.ok) {
         setMessage({ type: 'success', text: `✓ Transfer Queued! Awaiting Manager Approval.  REF: ${data.ref}` });
         setAmount(''); setToAccount(''); setIfsc('');
         setShowOtp(false);
+        router.push('/customer/dashboard');
       } else {
         let errorTxt = data.message || 'Transfer initiation failed.';
         if (data.attemptsLeft !== undefined) {
@@ -132,8 +136,9 @@ export default function ExternalTransfer() {
       }
     } catch {
       setMessage({ type: 'error', text: 'Network connection failed. Is the backend running?' });
+    } finally {
+      setOtpLoading(false);
     }
-    setOtpLoading(false);
   };
 
   const selectedAcc = accounts.find(a => (a.ACCOUNT_ID || a.account_id) === fromAccountId);

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './notifications.module.css';
@@ -131,54 +131,58 @@ export default function UserNotifications({ bellClassName }) {
     const [notifications, setNotifications] = useState([]);
     const [hasNew, setHasNew] = useState(false);
     const dropdownRef = useRef(null);
+    const prevNotifsRef = useRef([]);
     const { showToast } = useToast();
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         try {
             const token = localStorage.getItem('suraksha_token');
             if (!token) return;
 
-            const res = await fetch('http://localhost:5000/api/auth/notifications', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/notifications`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (res.ok) {
                 const data = await res.json();
-                setNotifications(prev => {
-                    if (data.length > 0 && prev.length > 0 && data[0].id !== prev[0].id) {
-                        if (!isOpen) {
-                            setHasNew(true);
-                            const newNotifs = data.filter(d => !prev.some(p => p.id === d.id));
-                            newNotifs.forEach(notif => {
-                                const parsedData = tryParse(notif.message);
-                                const info = getTypeInfo(notif.title, parsedData);
-                                const msg = formatMessage(notif.title, notif.message);
-                                const text = typeof msg === 'object' ? msg.text : msg;
-                                
-                                let toastType = 'INFO';
-                                if (['credit', 'success'].includes(info.cat)) toastType = 'SUCCESS';
-                                if (info.cat === 'debit') toastType = 'WARNING';
-                                if (['SI_FAILED', 'EMI_OVERDUE'].includes(notif.title)) toastType = 'ERROR';
-                                
-                                showToast(`${info.label}: ${text}`, toastType, 5000);
-                            });
-                        }
-                    } else if (prev.length === 0 && data.length > 0) {
-                        if (!isOpen) setHasNew(true);
+                const prev = prevNotifsRef.current;
+                
+                // Diff the new incoming array vs what we had previously
+                if (data.length > 0 && prev.length > 0 && data[0].id !== prev[0].id) {
+                    if (!isOpen) {
+                        setHasNew(true);
+                        const newNotifs = data.filter(d => !prev.some(p => p.id === d.id));
+                        newNotifs.forEach(notif => {
+                            const parsedData = tryParse(notif.message);
+                            const info = getTypeInfo(notif.title, parsedData);
+                            const msg = formatMessage(notif.title, notif.message);
+                            const text = typeof msg === 'object' ? msg.text : msg;
+                            
+                            let toastType = 'INFO';
+                            if (['credit', 'success'].includes(info.cat)) toastType = 'SUCCESS';
+                            if (info.cat === 'debit') toastType = 'WARNING';
+                            if (['SI_FAILED', 'EMI_OVERDUE'].includes(notif.title)) toastType = 'ERROR';
+                            
+                            showToast(`${info.label}: ${text}`, toastType, 5000);
+                        });
                     }
-                    return data;
-                });
+                } else if (prev.length === 0 && data.length > 0) {
+                    if (!isOpen) setHasNew(true);
+                }
+                
+                prevNotifsRef.current = data;
+                setNotifications(data);
             }
         } catch (err) {
             console.error("Failed to fetch notifications:", err);
         }
-    };
+    }, [isOpen, showToast]);
 
     useEffect(() => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 5000);
         return () => clearInterval(interval);
-    }, [isOpen]);
+    }, [fetchNotifications]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {

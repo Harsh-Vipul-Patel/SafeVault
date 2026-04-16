@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from '../views.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -11,11 +11,7 @@ export default function SettleTransfers() {
     const [error, setError] = useState(null);
     const [filter, setFilter] = useState('PENDING');
 
-    useEffect(() => {
-        fetchTransfers();
-    }, [filter]);
-
-    const fetchTransfers = async () => {
+    const fetchTransfers = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('suraksha_token');
@@ -31,7 +27,11 @@ export default function SettleTransfers() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filter]);
+
+    useEffect(() => {
+        fetchTransfers();
+    }, [fetchTransfers]);
 
     const handleAction = async (transferId, action) => {
         setActionLoading(transferId);

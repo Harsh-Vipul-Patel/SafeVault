@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import styles from './page.module.css';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
 
 function formatINR(n) {

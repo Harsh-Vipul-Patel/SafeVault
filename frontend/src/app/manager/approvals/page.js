@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from '../views.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -11,11 +11,7 @@ export default function ApprovalsQueue() {
     const [error, setError] = useState(null);
     const [filter, setFilter] = useState('PENDING');
 
-    useEffect(() => {
-        fetchApprovals();
-    }, [filter]);
-
-    const fetchApprovals = async () => {
+    const fetchApprovals = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('suraksha_token');
@@ -31,7 +27,11 @@ export default function ApprovalsQueue() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filter]);
+
+    useEffect(() => {
+        fetchApprovals();
+    }, [fetchApprovals]);
 
     const handleAction = async (queueId, action) => {
         setActionLoading(queueId);

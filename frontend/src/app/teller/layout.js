@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +25,7 @@ import {
 import styles from './teller.module.css';
 import UserNotifications from '../../components/UserNotifications';
 import RouteGuard from '../../components/RouteGuard';
+import SidebarNav from '../../components/SidebarNav';
 
 export default function TellerLayout({ children }) {
     const pathname = usePathname();
@@ -35,7 +35,7 @@ export default function TellerLayout({ children }) {
         try {
             const token = localStorage.getItem('suraksha_token');
             if (token) {
-                await fetch('http://localhost:5000/api/auth/logout', {
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -71,13 +71,7 @@ export default function TellerLayout({ children }) {
         }
     }, [router]);
 
-    // Scroll active link into view
-    useEffect(() => {
-        const activeLink = document.querySelector(`.${styles.activeLink}`);
-        if (activeLink) {
-            activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }, [pathname]);
+
 
     const mainNav = [
         { icon: <Monitor size={18} />, label: 'Counter Queue', path: '/teller/dashboard' },
@@ -104,15 +98,6 @@ export default function TellerLayout({ children }) {
     const sidebarVariants = {
         hidden: { x: -20, opacity: 0 },
         visible: { x: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } }
-    };
-
-    const navItemVariants = {
-        hidden: { x: -10, opacity: 0 },
-        visible: (i) => ({
-            x: 0,
-            opacity: 1,
-            transition: { delay: i * 0.03, duration: 0.3 }
-        })
     };
 
     return (
@@ -146,38 +131,13 @@ export default function TellerLayout({ children }) {
 
                 {/* MAIN NAV */}
                 <nav className={styles.navMenu}>
-                    <ul className={styles.navList}>
-                        {mainNav.map((item, i) => (
-                            <motion.li key={item.path} custom={i} variants={navItemVariants} initial="hidden" animate="visible">
-                                <Link
-                                    href={item.path}
-                                    className={`${styles.navLink} ${pathname === item.path ? styles.activeLink : ''}`}
-                                >
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    <span className={styles.navLabel}>{item.label}</span>
-                                    {pathname === item.path && (
-                                        <motion.div
-                                            className={styles.activeIndicator}
-                                            layoutId="tellerNavActive"
-                                        />
-                                    )}
-                                </Link>
-                            </motion.li>
-                        ))}
-                    </ul>
-
-                    {/* RESTRICTED */}
-                    <div className={styles.navDivider}></div>
-                    <ul className={styles.navList}>
-                        {restrictedNav.map((item, i) => (
-                            <motion.li key={i} custom={i + mainNav.length} variants={navItemVariants} initial="hidden" animate="visible">
-                                <span className={styles.navLinkRestricted}>
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    <span className={styles.navLabel}>{item.label}</span>
-                                </span>
-                            </motion.li>
-                        ))}
-                    </ul>
+                    <SidebarNav
+                        activePath={pathname}
+                        groups={[
+                            { title: 'Cash Operations', items: mainNav },
+                            { title: 'Restricted Tools', items: restrictedNav }
+                        ]}
+                    />
                 </nav>
 
                 <motion.button

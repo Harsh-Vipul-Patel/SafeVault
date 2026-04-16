@@ -15,7 +15,7 @@ export default function LoanDisbursement() {
     const fetchApprovedLoans = async () => {
         try {
             const token = localStorage.getItem('suraksha_token');
-            const res = await fetch('http://localhost:5000/api/loan-manager/reports/portfolio', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/loan-manager/reports/portfolio`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -33,7 +33,7 @@ export default function LoanDisbursement() {
         setActionStatus({ id: appId, loading: true, message: '' });
         try {
             const token = localStorage.getItem('suraksha_token');
-            const res = await fetch(`http://localhost:5000/api/loan-manager/disburse`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/loan-manager/disburse`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

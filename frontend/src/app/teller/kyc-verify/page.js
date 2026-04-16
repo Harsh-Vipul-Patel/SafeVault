@@ -6,7 +6,7 @@ import { Search, ShieldCheck, User, Calendar, FileText, CheckCircle, XCircle, Lo
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API = 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('suraksha_token') : '';
 
 export default function TellerKYCVerify() {

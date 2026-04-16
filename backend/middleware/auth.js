@@ -1,7 +1,12 @@
 const jwt = require('jsonwebtoken');
 const oracledb = require('oracledb');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_here_change_in_production';
+const DEV_JWT_SECRET = 'super_secret_jwt_key_here_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET || DEV_JWT_SECRET;
+
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is required in production.');
+}
 
 // Middleware to verify JWT token
 const verifyToken = async (req, res, next) => {

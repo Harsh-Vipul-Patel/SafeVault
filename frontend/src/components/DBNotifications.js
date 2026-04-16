@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, ShieldAlert, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './notifications.module.css';
@@ -13,12 +13,12 @@ export default function DBNotifications({ bellClassName }) {
     const { showToast } = useToast();
 
     // Fetch logs from backend securely
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
             if (!token) return;
             
-            const res = await fetch('http://localhost:5000/api/admin/system-logs', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/system-logs`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -44,7 +44,7 @@ export default function DBNotifications({ bellClassName }) {
         } catch (err) {
             console.error("Failed to fetch DB logs:", err);
         }
-    };
+    }, [isOpen, showToast]);
 
     useEffect(() => {
         // Initial fetch
@@ -53,7 +53,7 @@ export default function DBNotifications({ bellClassName }) {
         // Poll every 5 seconds
         const interval = setInterval(fetchLogs, 5000);
         return () => clearInterval(interval);
-    }, [isOpen]);
+    }, [fetchLogs]);
 
     // Handle outside click
     useEffect(() => {

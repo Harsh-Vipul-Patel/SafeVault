@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,6 +22,7 @@ import {
 import styles from './manager.module.css';
 import UserNotifications from '../../components/UserNotifications';
 import RouteGuard from '../../components/RouteGuard';
+import SidebarNav from '../../components/SidebarNav';
 
 export default function ManagerLayout({ children }) {
     const pathname = usePathname();
@@ -32,7 +32,7 @@ export default function ManagerLayout({ children }) {
         try {
             const token = localStorage.getItem('suraksha_token');
             if (token) {
-                await fetch('http://localhost:5000/api/auth/logout', {
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -68,13 +68,7 @@ export default function ManagerLayout({ children }) {
         }
     }, [router]);
 
-    // Scroll active link into view
-    useEffect(() => {
-        const activeLink = document.querySelector(`.${styles.activeNav}`);
-        if (activeLink) {
-            activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }, [pathname]);
+
 
     const navItems = [
         { icon: <TrendingUp size={18} />, label: 'Branch Overview', path: '/manager/dashboard' },
@@ -93,15 +87,6 @@ export default function ManagerLayout({ children }) {
     const sidebarVariants = {
         hidden: { x: -30, opacity: 0 },
         visible: { x: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } }
-    };
-
-    const navItemVariants = {
-        hidden: { opacity: 0, x: -10 },
-        visible: (i) => ({
-            opacity: 1,
-            x: 0,
-            transition: { delay: 0.05 * i, duration: 0.3 }
-        })
     };
 
     const activeItem = navItems.find(item => item.path === pathname);
@@ -142,30 +127,12 @@ export default function ManagerLayout({ children }) {
 
                 <div className={styles.navSection}>OPERATIONS & OVERSIGHT</div>
                 <nav className={styles.navMenu}>
-                    <ul className={styles.navList}>
-                        {navItems.map((item, i) => (
-                            <motion.li
-                                key={item.path}
-                                custom={i}
-                                variants={navItemVariants}
-                                initial="hidden"
-                                animate="visible"
-                                className={pathname === item.path ? styles.activeNav : ''}
-                            >
-                                <Link href={item.path}>
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    <span className={styles.navLabel}>{item.label}</span>
-                                    {pathname === item.path && (
-                                        <motion.div
-                                            className={styles.activeIndicator}
-                                            layoutId="managerNavActive"
-                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                        />
-                                    )}
-                                </Link>
-                            </motion.li>
-                        ))}
-                    </ul>
+                    <SidebarNav
+                        activePath={pathname}
+                        groups={[
+                            { title: 'Operations & Oversight', items: navItems }
+                        ]}
+                    />
                 </nav>
 
                 <motion.button

@@ -1,5 +1,5 @@
 const { resend } = require('./mailer');
-const emailService = require('../services/emailService');
+const emailService = require('../services/triggerTemplates');
 const oracledb = require('oracledb');
 
 const templateMap = {

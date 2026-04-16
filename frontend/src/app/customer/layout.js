@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +23,7 @@ import {
 import styles from './customer.module.css';
 import UserNotifications from '../../components/UserNotifications';
 import RouteGuard from '../../components/RouteGuard';
+import SidebarNav from '../../components/SidebarNav';
 
 function decodeJWT(token) {
     try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
@@ -43,21 +43,15 @@ export default function CustomerLayout({ children }) {
         const name = payload.name || payload.username || 'Customer';
         setUserName(name);
         setInitials(name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2));
-    }, []);
+    }, [router]);
 
-    // Scroll active link into view
-    useEffect(() => {
-        const activeLink = document.querySelector(`.${styles.activeLink}`);
-        if (activeLink) {
-            activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }, [pathname]);
+
 
     const handleLogout = async () => {
         try {
             const token = localStorage.getItem('suraksha_token');
             if (token) {
-                await fetch('http://localhost:5000/api/auth/logout', {
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -94,15 +88,6 @@ export default function CustomerLayout({ children }) {
         visible: { x: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } }
     };
 
-    const navItemVariants = {
-        hidden: { x: -10, opacity: 0 },
-        visible: (i) => ({
-            x: 0,
-            opacity: 1,
-            transition: { delay: 0.1 + i * 0.05, duration: 0.3 }
-        })
-    };
-
     return (
         <RouteGuard allowedRoles={['CUSTOMER']}>
         <div className={styles.layout}>
@@ -132,47 +117,13 @@ export default function CustomerLayout({ children }) {
                 </div>
 
                 <nav className={styles.navMenu}>
-                    <ul className={styles.navList}>
-                        {topNavItems.map((item, i) => (
-                            <motion.li key={item.path} custom={i} variants={navItemVariants} initial="hidden" animate="visible">
-                                <Link
-                                    href={item.path}
-                                    className={`${styles.navLink} ${pathname === item.path ? styles.activeLink : ''}`}
-                                >
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    <span className={styles.navLabel}>{item.label}</span>
-                                    {pathname === item.path && (
-                                        <motion.div
-                                            className={styles.activeIndicator}
-                                            layoutId="activeNav"
-                                        />
-                                    )}
-                                </Link>
-                            </motion.li>
-                        ))}
-                    </ul>
-
-                    <div className={styles.navDivider}></div>
-
-                    <ul className={styles.navList}>
-                        {bottomNavItems.map((item, i) => (
-                            <motion.li key={item.path} custom={i + topNavItems.length} variants={navItemVariants} initial="hidden" animate="visible">
-                                <Link
-                                    href={item.path}
-                                    className={`${styles.navLink} ${pathname === item.path ? styles.activeLink : ''}`}
-                                >
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    <span className={styles.navLabel}>{item.label}</span>
-                                    {pathname === item.path && (
-                                        <motion.div
-                                            className={styles.activeIndicator}
-                                            layoutId="activeNav"
-                                        />
-                                    )}
-                                </Link>
-                            </motion.li>
-                        ))}
-                    </ul>
+                    <SidebarNav
+                        activePath={pathname}
+                        groups={[
+                            { title: 'Accounts & Transfers', items: topNavItems },
+                            { title: 'Services & Profile', items: bottomNavItems }
+                        ]}
+                    />
                 </nav>
 
                 <motion.button
